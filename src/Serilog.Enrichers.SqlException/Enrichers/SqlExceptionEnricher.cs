@@ -62,8 +62,16 @@ namespace Serilog.Enrichers.SqlException.Enrichers
 
         private static Microsoft.Data.SqlClient.SqlException? GetSqlException(Exception ex)
         {
+            var visited = new HashSet<Exception>();
+            
             while (ex != null)
             {
+                // Prevent infinite loops from circular exception chains
+                if (!visited.Add(ex))
+                {
+                    break;
+                }
+                
                 if (ex is Microsoft.Data.SqlClient.SqlException sqlEx)
                 {
                     return sqlEx;

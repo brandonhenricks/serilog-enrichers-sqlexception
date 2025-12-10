@@ -24,7 +24,6 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net8</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>nullable</WarningsAsErrors>

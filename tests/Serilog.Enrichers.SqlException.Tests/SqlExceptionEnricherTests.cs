@@ -108,12 +108,22 @@ namespace Serilog.Enrichers.SqlException.Tests
             var sqlErrorCollectionType = sqlExceptionType.Assembly.GetType("Microsoft.Data.SqlClient.SqlErrorCollection");
             var sqlErrorCollection = Activator.CreateInstance(sqlErrorCollectionType!, true);
             
+            // Create SqlError with parameters: number, state, class, server, errorMessage, procedure, lineNumber, exception
             var sqlErrorType = sqlExceptionType.Assembly.GetType("Microsoft.Data.SqlClient.SqlError");
+            var errorNumber = number;
+            var errorState = state;
+            var severity = errorClass;
+            var server = "localhost";
+            var errorMessage = "Test error message";
+            var procedureName = procedure;
+            var lineNumber = line;
+            Exception? innerException = null;
+            
             var sqlError = Activator.CreateInstance(
                 sqlErrorType!,
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
-                new object[] { number, state, errorClass, "localhost", "Test error message", procedure, line, null! },
+                new object[] { errorNumber, errorState, severity, server, errorMessage, procedureName, lineNumber, innerException! },
                 null);
 
             var addMethod = sqlErrorCollectionType!.GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -130,10 +140,9 @@ namespace Serilog.Enrichers.SqlException.Tests
         {
             public LogEventProperty CreateProperty(string name, object? value, bool destructureObjects = false)
             {
-                var propertyValue = destructureObjects && value is IEnumerable<object> enumerable
-                    ? new ScalarValue(enumerable)
-                    : new ScalarValue(value);
-
+                // For test purposes, we just wrap values in ScalarValue
+                // In production, Serilog's property factory handles complex destructuring
+                var propertyValue = new ScalarValue(value);
                 return new LogEventProperty(name, propertyValue);
             }
         }
