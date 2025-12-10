@@ -14,12 +14,14 @@
     <Title>$(Product)</Title>
     <PackageProjectUrl>https://github.com/brandonhenricks/serilog-enrichers-sqlexception</PackageProjectUrl>
     <PackageReleaseNotes>https://github.com/brandonhenricks/serilog-enrichers-sqlexception</PackageReleaseNotes>
+    <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>Serilog;serilog-enricher-sqlexception;SqlException;SQL Server</PackageTags>
     <LangVersion>latestMajor</LangVersion>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup>    
+    <None Include="$(MSBuildThisFileDirectory)\images\logo.png" Pack="true" Visible="false" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 
