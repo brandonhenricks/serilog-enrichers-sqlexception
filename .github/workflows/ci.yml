@@ -16,13 +16,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5.0.1
+
+      - name: Setup .NET (use global.json)
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          dotnet-version: '8.0.x'
-          cache: 'nuget' # optional: caches NuGet packages
+          include-prerelease: false
+          cache: 'nuget'
+
+      - name: Diagnostic dotnet --info
+        run: dotnet --info
+
+      - name: Ensure dotnet-format tool is available
+        run: |
+          if ! command -v dotnet-format >/dev/null 2>&1; then
+            dotnet tool install --global dotnet-format
+            export PATH="$PATH:$HOME/.dotnet/tools"
+          fi
+        shell: bash
 
       - name: Install dependencies
         run: dotnet restore
@@ -47,10 +58,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5.0.1
+      - name: Setup .NET (use global.json)
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+          include-prerelease: false
+          cache: 'nuget'
+
+      - name: Diagnostic dotnet --info
+        run: dotnet --info
 
       - name: Install dependencies
         run: |
@@ -61,7 +77,8 @@ jobs:
         run: |
           dotnet build `
             --configuration Release `
-            --no-restore     
+            --no-restore
+
       - name: Run Tests
         run: |
           dotnet test `
