@@ -25,6 +25,19 @@ jobs:
         uses: actions/setup-dotnet@v5.0.1
         with:
           global-json-file: global.json
+      - name: Validate NuGet API Key
+        run: |
+          if [ -z "${{secrets.NUGET_API_KEY}}" ]; then
+            echo "Error: NUGET_API_KEY secret is not set"
+            exit 1
+          fi
+          if [ ${#NUGET_API_KEY} -lt 32 ]; then
+            echo "Error: NUGET_API_KEY appears to be invalid (too short)"
+            exit 1
+          fi
+          echo "NuGet API key validation passed"
+        env:
+          NUGET_API_KEY: ${{secrets.NUGET_API_KEY}}
       - name: Restore Project Dependencies
         run: dotnet restore
       - name: Build Project
@@ -32,4 +45,4 @@ jobs:
       - name: Pack Project
         run: dotnet pack --configuration Release /p:Version=${VERSION} --no-build --output .
       - name: Push Project to Nuget
-        run: dotnet nuget push Serilog.Enrichers.SqlException.${VERSION}.nupkg -k ${{secrets.NUGET_API_KEY}} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push Serilog.Enrichers.SqlException.${VERSION}.nupkg --api-key ${{secrets.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json --skip-duplicate
