@@ -1,6 +1,5 @@
-using Serilog.Core;
+﻿using Serilog.Core;
 using Serilog.Events;
-using Microsoft.Data.SqlClient;
 
 namespace Serilog.Enrichers.SqlException.Enrichers
 {
@@ -31,28 +30,28 @@ namespace Serilog.Enrichers.SqlException.Enrichers
             }
 
             logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_IsSqlException", true));
-            
+
             // Add properties from the first SqlError (if any errors exist)
             if (sqlException.Errors.Count > 0)
             {
                 var firstError = sqlException.Errors[0];
-                
+
                 logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Number", firstError.Number));
                 logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_State", firstError.State));
                 logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Class", firstError.Class));
-                
+
                 if (!string.IsNullOrWhiteSpace(firstError.Procedure))
                 {
                     logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Procedure", firstError.Procedure));
                 }
-                
+
                 logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Line", firstError.LineNumber));
-                
+
                 if (!string.IsNullOrWhiteSpace(firstError.Server))
                 {
                     logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Server", firstError.Server));
                 }
-                
+
                 if (!string.IsNullOrWhiteSpace(firstError.Message))
                 {
                     logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("SqlException_Message", firstError.Message));
@@ -63,7 +62,7 @@ namespace Serilog.Enrichers.SqlException.Enrichers
         private static Microsoft.Data.SqlClient.SqlException? GetSqlException(Exception ex)
         {
             var visited = new HashSet<Exception>();
-            
+
             while (ex != null)
             {
                 // Prevent infinite loops from circular exception chains
@@ -71,7 +70,7 @@ namespace Serilog.Enrichers.SqlException.Enrichers
                 {
                     break;
                 }
-                
+
                 if (ex is Microsoft.Data.SqlClient.SqlException sqlEx)
                 {
                     return sqlEx;
@@ -79,7 +78,7 @@ namespace Serilog.Enrichers.SqlException.Enrichers
 
                 ex = ex.InnerException;
             }
-            
+
             return null;
         }
     }
