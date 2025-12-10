@@ -1,0 +1,48 @@
+<Project>
+
+  <PropertyGroup>
+    <Company>Brandon Henricks</Company>
+    <Authors>$(Company)</Authors>
+    <Copyright>Copyright © $(Company) $([System.DateTime]::Now.Year)</Copyright>
+    <Trademark>$(Company)™</Trademark>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Product>Serilog.Enrichers.SqlException</Product>
+    <Description>
+    A Serilog enricher that adds SQL Server exception details to your log events. Enhance observability and troubleshooting for .NET applications using SQL Server by including detailed exception information such as error number, state, severity, procedure name, and line number in your logs.
+    </Description>
+    <Title>$(Product)</Title>
+    <PackageProjectUrl>https://github.com/brandonhenricks/serilog-enrichers-sqlexception</PackageProjectUrl>
+    <PackageReleaseNotes>https://github.com/brandonhenricks/serilog-enrichers-sqlexception</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>Serilog;serilog-enricher-sqlexception;SqlException;SQL Server</PackageTags>
+    <LangVersion>latestMajor</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)\README.md" Pack="true" PackagePath=""/>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <CopyDocumentationFilesFromPackages>true</CopyDocumentationFilesFromPackages>
+    <CopyDebugSymbolFilesFromPackages>true</CopyDebugSymbolFilesFromPackages>
+    <NoWarn>$(NoWarn);NU1504;NU1505;NU1506;NU1701;1591</NoWarn>
+    <RootNamespace>Serilog.Enrichers.SqlException</RootNamespace>
+
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <TimestampServerUrl>http://timestamp.digicert.com</TimestampServerUrl>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" $(Configuration) == 'Release' ">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+</Project>
