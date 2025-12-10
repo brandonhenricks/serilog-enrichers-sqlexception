@@ -1,4 +1,4 @@
-using Serilog.Configuration;
+﻿using Serilog.Configuration;
 using Serilog.Enrichers.SqlException.Enrichers;
 
 namespace Serilog.Enrichers.SqlException.Extensions

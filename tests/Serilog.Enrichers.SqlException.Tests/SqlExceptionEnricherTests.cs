@@ -1,8 +1,8 @@
+﻿using System.Reflection;
+using Microsoft.Data.SqlClient;
 using Serilog.Core;
 using Serilog.Enrichers.SqlException.Enrichers;
 using Serilog.Events;
-using Microsoft.Data.SqlClient;
-using System.Reflection;
 
 namespace Serilog.Enrichers.SqlException.Tests
 {
@@ -107,7 +107,7 @@ namespace Serilog.Enrichers.SqlException.Tests
             var sqlExceptionType = typeof(Microsoft.Data.SqlClient.SqlException);
             var sqlErrorCollectionType = sqlExceptionType.Assembly.GetType("Microsoft.Data.SqlClient.SqlErrorCollection");
             var sqlErrorCollection = Activator.CreateInstance(sqlErrorCollectionType!, true);
-            
+
             // Create SqlError with parameters: number, state, class, server, errorMessage, procedure, lineNumber, exception
             var sqlErrorType = sqlExceptionType.Assembly.GetType("Microsoft.Data.SqlClient.SqlError");
             var errorNumber = number;
@@ -118,7 +118,7 @@ namespace Serilog.Enrichers.SqlException.Tests
             var procedureName = procedure;
             var lineNumber = line;
             Exception? innerException = null;
-            
+
             var sqlError = Activator.CreateInstance(
                 sqlErrorType!,
                 BindingFlags.NonPublic | BindingFlags.Instance,
