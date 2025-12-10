@@ -1,4 +1,6 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using System.Collections;
+using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
 using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Events;
@@ -161,20 +163,23 @@ public class SqlExceptionEnricher : ILogEventEnricher
 
     private void EnrichWithConnectionContext(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, Microsoft.Data.SqlClient.SqlException sqlException)
     {
-        // Extract connection information from the exception's Data dictionary if available
-        if (sqlException.Data.Contains("DataSource") && sqlException.Data["DataSource"] is string dataSource)
+        // Use TryGetValue pattern for better performance and clarity
+        if (sqlException.Data is IDictionary data)
         {
-            AddProperty(logEvent, propertyFactory, "DataSource", dataSource);
-        }
+            if (data["DataSource"] is string dataSource)
+            {
+                AddProperty(logEvent, propertyFactory, "DataSource", dataSource);
+            }
 
-        if (sqlException.Data.Contains("Database") && sqlException.Data["Database"] is string database)
-        {
-            AddProperty(logEvent, propertyFactory, "Database", database);
-        }
+            if (data["Database"] is string database)
+            {
+                AddProperty(logEvent, propertyFactory, "Database", database);
+            }
 
-        if (sqlException.Data.Contains("ConnectionTimeout") && sqlException.Data["ConnectionTimeout"] is int timeout)
-        {
-            AddProperty(logEvent, propertyFactory, "ConnectionTimeout", timeout);
+            if (data["ConnectionTimeout"] is int timeout)
+            {
+                AddProperty(logEvent, propertyFactory, "ConnectionTimeout", timeout);
+            }
         }
 
         // ClientConnectionId is available on SqlException directly
