@@ -22,7 +22,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           global-json-file: global.json
-          cache: 'nuget'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       - name: Diagnostic show dotnet info
         run: |
@@ -66,7 +67,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           global-json-file: global.json
-          cache: 'nuget'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
 
       - name: Diagnostic show dotnet info
         run: |
