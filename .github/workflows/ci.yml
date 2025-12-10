@@ -17,21 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET (use global.json)
+      - name: "Setup .NET (target .NET 8)"
         uses: actions/setup-dotnet@v4
         with:
+          dotnet-version: '8.0.x'
           global-json-file: global.json
-          include-prerelease: false
           cache: 'nuget'
 
-      - name: Diagnostic dotnet --info
-        run: dotnet --info
+      - name: "Diagnostic: show dotnet info"
+        run: |
+          dotnet --info
+          dotnet --list-sdks
+        shell: bash
 
       - name: Ensure dotnet-format tool is available
         run: |
           if ! command -v dotnet-format >/dev/null 2>&1; then
             dotnet tool install --global dotnet-format
-            export PATH="$PATH:$HOME/.dotnet/tools"
+            echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
           fi
         shell: bash
 
@@ -58,15 +61,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET (use global.json)
+      - name: "Setup .NET (target .NET 8)"
         uses: actions/setup-dotnet@v4
         with:
+          dotnet-version: '8.0.x'
           global-json-file: global.json
-          include-prerelease: false
           cache: 'nuget'
 
-      - name: Diagnostic dotnet --info
-        run: dotnet --info
+      - name: "Diagnostic: show dotnet info"
+        run: |
+          dotnet --info
+          dotnet --list-sdks
+        shell: bash
 
       - name: Install dependencies
         run: |
