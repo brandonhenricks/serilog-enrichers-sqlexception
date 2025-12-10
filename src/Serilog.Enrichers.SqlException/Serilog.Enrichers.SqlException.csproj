@@ -9,4 +9,8 @@
 		<PackageReference Include="Microsoft.Data.SqlClient" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Configurations\" />
+	</ItemGroup>
+
 </Project>
