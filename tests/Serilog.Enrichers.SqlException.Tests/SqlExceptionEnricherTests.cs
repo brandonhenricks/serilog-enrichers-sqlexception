@@ -118,13 +118,13 @@ public class SqlExceptionEnricherTests
         var errorMessage = "Test error message";
         var procedureName = procedure;
         var lineNumber = line;
-        Exception? innerException = null;
+        Exception innerException = new Exception("Inner");
 
         var sqlError = Activator.CreateInstance(
             sqlErrorType!,
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new object[] { errorNumber, errorState, severity, server, errorMessage, procedureName, lineNumber, innerException! },
+            new object[] { errorNumber, errorState, severity, server, errorMessage, procedureName, lineNumber, innerException },
             null);
 
         var addMethod = sqlErrorCollectionType!.GetMethod("Add", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -132,7 +132,7 @@ public class SqlExceptionEnricherTests
 
         var ctor = sqlExceptionType.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0];
         var sqlException = (Microsoft.Data.SqlClient.SqlException)ctor.Invoke(
-            new object[] { "Test SQL Exception", sqlErrorCollection!, null!, Guid.NewGuid() });
+            new object[] { "Test SQL Exception", sqlErrorCollection!, innerException, Guid.NewGuid() });
 
         return sqlException;
     }
@@ -173,7 +173,7 @@ public class SqlExceptionEnricherTests
     {
         // Arrange
         var enricher = new SqlExceptionEnricher();
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: 547,
             state: 0,
             errorClass: 16,
@@ -255,7 +255,7 @@ public class SqlExceptionEnricherTests
     {
         // Arrange
         var enricher = new SqlExceptionEnricher();
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: -2, // Timeout
             state: 0,
             errorClass: 11,
@@ -280,7 +280,7 @@ public class SqlExceptionEnricherTests
     {
         // Arrange
         var enricher = new SqlExceptionEnricher();
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: 1205, // Deadlock
             state: 13,
             errorClass: 13,
@@ -305,7 +305,7 @@ public class SqlExceptionEnricherTests
     {
         // Arrange
         var enricher = new SqlExceptionEnricher();
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: 547, // Constraint violation
             state: 0,
             errorClass: 16,
@@ -331,7 +331,7 @@ public class SqlExceptionEnricherTests
         // Arrange
         var options = new SqlExceptionEnricherOptions { DetectTransientFailures = false };
         var enricher = new SqlExceptionEnricher(options);
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: -2,
             state: 0,
             errorClass: 11,
@@ -356,7 +356,7 @@ public class SqlExceptionEnricherTests
         // Arrange
         var options = new SqlExceptionEnricherOptions { PropertyPrefix = "Sql_" };
         var enricher = new SqlExceptionEnricher(options);
-        var sqlException = CreateSqlException(
+        var sqlException = CreateSqlExceptionWithAllFields(
             number: 547,
             state: 0,
             errorClass: 16,
@@ -394,7 +394,7 @@ public class SqlExceptionEnricherTests
         Assert.True(properties.ContainsKey("SqlException_ClientConnectionId"));
     }
 
-    private static Microsoft.Data.SqlClient.SqlException CreateSqlException(
+    private static Microsoft.Data.SqlClient.SqlException CreateSqlExceptionWithAllFields(
         int number,
         byte state,
         byte errorClass,
@@ -418,11 +418,13 @@ public class SqlExceptionEnricherTests
             .Assembly
             .GetType("Microsoft.Data.SqlClient.SqlError")!;
 
+        var innerException = new Exception("Inner");
+
         var sqlError = Activator.CreateInstance(
             sqlErrorType,
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new object[] { number, state, errorClass, server, errorMessage, procedure, lineNumber, null },
+            new object[] { number, state, errorClass, server, errorMessage, procedure, lineNumber, innerException },
             null)!;
 
         var addMethod = errorCollectionType.GetMethod(
@@ -431,7 +433,6 @@ public class SqlExceptionEnricherTests
 
         addMethod.Invoke(errorCollection, new[] { sqlError });
 
-        // Try to find the correct constructor: (SqlErrorCollection, string? message, Guid connectionId)
         var constructor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructor(
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
@@ -443,7 +444,6 @@ public class SqlExceptionEnricherTests
             return (Microsoft.Data.SqlClient.SqlException)constructor.Invoke(new object?[] { errorCollection, null, Guid.Empty })!;
         }
 
-        // Fallback for older versions: (string message, SqlErrorCollection errors, Exception innerException, Guid connectionId)
         var fallbackCtor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
             .FirstOrDefault(c =>
             {
@@ -457,7 +457,7 @@ public class SqlExceptionEnricherTests
 
         if (fallbackCtor != null)
         {
-            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, null!, Guid.NewGuid() })!;
+            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, innerException, Guid.NewGuid() })!;
         }
 
         throw new InvalidOperationException("Could not find a suitable SqlException constructor.");
@@ -480,20 +480,21 @@ public class SqlExceptionEnricherTests
             .Assembly
             .GetType("Microsoft.Data.SqlClient.SqlError")!;
 
-        // First error
+        var innerException1 = new Exception("Inner1");
+        var innerException2 = new Exception("Inner2");
+
         var sqlError1 = Activator.CreateInstance(
             sqlErrorType,
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new object[] { 547, (byte)0, (byte)16, "Server1", "FK violation", "proc1", 10, null },
+            new object[] { 547, (byte)0, (byte)16, "Server1", "FK violation", "proc1", 10, innerException1 },
             null)!;
 
-        // Second error
         var sqlError2 = Activator.CreateInstance(
             sqlErrorType,
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new object[] { 2627, (byte)1, (byte)14, "Server2", "PK violation", "proc2", 20, null },
+            new object[] { 2627, (byte)1, (byte)14, "Server2", "PK violation", "proc2", 20, innerException2 },
             null)!;
 
         var addMethod = errorCollectionType.GetMethod(
@@ -503,7 +504,6 @@ public class SqlExceptionEnricherTests
         addMethod.Invoke(errorCollection, new[] { sqlError1 });
         addMethod.Invoke(errorCollection, new[] { sqlError2 });
 
-        // Find the correct constructor: (SqlErrorCollection, string? message, Guid connectionId)
         var constructor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructor(
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
@@ -515,7 +515,6 @@ public class SqlExceptionEnricherTests
             return (Microsoft.Data.SqlClient.SqlException)constructor.Invoke(new object?[] { errorCollection, null, Guid.Empty })!;
         }
 
-        // Fallback for older versions: (string message, SqlErrorCollection errors, Exception innerException, Guid connectionId)
         var fallbackCtor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
             .FirstOrDefault(c =>
             {
@@ -529,7 +528,7 @@ public class SqlExceptionEnricherTests
 
         if (fallbackCtor != null)
         {
-            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, null!, Guid.NewGuid() })!;
+            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, innerException1, Guid.NewGuid() })!;
         }
 
         throw new InvalidOperationException("Could not find a suitable SqlException constructor.");
@@ -552,11 +551,13 @@ public class SqlExceptionEnricherTests
             .Assembly
             .GetType("Microsoft.Data.SqlClient.SqlError")!;
 
+        var innerException = new Exception("Inner");
+
         var sqlError = Activator.CreateInstance(
             sqlErrorType,
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new object[] { 547, (byte)0, (byte)16, "Server", "Error", "", 1, null },
+            new object[] { 547, (byte)0, (byte)16, "Server", "Error", "", 1, innerException },
             null)!;
 
         var addMethod = errorCollectionType.GetMethod(
@@ -565,7 +566,6 @@ public class SqlExceptionEnricherTests
 
         addMethod.Invoke(errorCollection, new[] { sqlError });
 
-        // Try to find the correct constructor: (SqlErrorCollection, string? message, Guid connectionId)
         var constructor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructor(
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
@@ -577,7 +577,6 @@ public class SqlExceptionEnricherTests
             return (Microsoft.Data.SqlClient.SqlException)constructor.Invoke(new object?[] { errorCollection, null, connectionId })!;
         }
 
-        // Fallback for older versions: (string message, SqlErrorCollection errors, Exception innerException, Guid connectionId)
         var fallbackCtor = typeof(Microsoft.Data.SqlClient.SqlException).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
             .FirstOrDefault(c =>
             {
@@ -591,7 +590,7 @@ public class SqlExceptionEnricherTests
 
         if (fallbackCtor != null)
         {
-            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, null!, connectionId })!;
+            return (Microsoft.Data.SqlClient.SqlException)fallbackCtor.Invoke(new object?[] { "Test SQL Exception", errorCollection, innerException, connectionId })!;
         }
 
         throw new InvalidOperationException("Could not find a suitable SqlException constructor.");
