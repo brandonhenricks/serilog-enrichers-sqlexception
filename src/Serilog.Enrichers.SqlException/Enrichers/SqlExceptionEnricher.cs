@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using Serilog.Core;
+using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Events;
 
 namespace Serilog.Enrichers.SqlException.Enrichers;

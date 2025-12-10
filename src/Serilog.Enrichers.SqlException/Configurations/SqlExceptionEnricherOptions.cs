@@ -1,4 +1,4 @@
-﻿namespace Serilog.Enrichers.SqlException;
+﻿namespace Serilog.Enrichers.SqlException.Configurations;
 
 /// <summary>
 /// Provides configuration options for <see cref="Enrichers.SqlExceptionEnricher"/>.
