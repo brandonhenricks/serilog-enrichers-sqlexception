@@ -163,7 +163,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
 
     private void EnrichWithConnectionContext(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, Microsoft.Data.SqlClient.SqlException sqlException)
     {
-        // Use TryGetValue pattern for better performance and clarity
         if (sqlException.Data is IDictionary data)
         {
             if (data["DataSource"] is string dataSource)

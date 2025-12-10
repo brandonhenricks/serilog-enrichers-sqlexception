@@ -12,13 +12,6 @@ public class SqlExceptionEnricherOptions
     public bool IncludeAllErrors { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to include detailed error information
-    /// such as error number, state, severity, procedure, and line number.
-    /// Default is <c>true</c>.
-    /// </summary>
-    public bool IncludeErrorDetails { get; set; } = true;
-
-    /// <summary>
     /// Gets or sets a value indicating whether to include connection context details
     /// such as database name, data source, and connection timeout.
     /// Default is <c>true</c>.
