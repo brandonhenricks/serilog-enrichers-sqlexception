@@ -221,14 +221,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
     {
         var isDeadlock = SqlErrorCategorizer.IsDeadlock(error.Number);
         AddProperty(logEvent, propertyFactory, "IsDeadlock", isDeadlock);
-
-        if (isDeadlock && _options.IncludeDeadlockGraph)
-        {
-            if (DeadlockGraphExtractor.TryExtractGraph(error.Message, out var graph))
-            {
-                AddProperty(logEvent, propertyFactory, "DeadlockGraph", graph!);
-            }
-        }
     }
 
     private void EnrichWithTimeoutClassification(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)

@@ -9,7 +9,7 @@ A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlC
 
 - **Automatic SqlException Detection**: Walks the exception chain to find `SqlException` instances, even when wrapped in other exception types
 - **Structured Logging**: Extracts key properties as separate log event properties for filtering and querying
-- **Deadlock Detection**: Automatically identifies deadlock errors (1205) and extracts XML deadlock graphs
+- **Deadlock Detection**: Automatically identifies deadlock errors (error number 1205)
 - **Timeout Classification**: Categorizes timeout errors by type (Command, Connection, Network)
 - **Error Categorization**: Classifies errors into logical categories (Connectivity, Syntax, Permission, Constraint, Resource, Corruption, Concurrency)
 - **Retry Guidance**: Automatic retry recommendations with strategy, delay, and max retry counts for 50+ error types
@@ -67,8 +67,7 @@ var options = new SqlExceptionEnricherOptions
     IncludeAllErrors = true,                 // Enrich all errors in collection
     IncludeConnectionContext = true,         // Add server/database info
     DetectTransientFailures = true,          // Identify transient errors
-    DetectDeadlocks = true,                  // Detect deadlock errors
-    IncludeDeadlockGraph = true,             // Extract XML deadlock graph
+    DetectDeadlocks = true,                  // Detect deadlock errors (1205)
     ClassifyTimeouts = true,                 // Classify timeout types
     CategorizeErrors = true,                 // Categorize by error type
     ProvideRetryGuidance = true,             // Add retry recommendations
@@ -108,7 +107,6 @@ Log.Logger = new LoggerConfiguration()
 | Property | Type | Description | Required Option |
 |----------|------|-------------|-----------------|
 | `SqlException_IsDeadlock` | `bool` | True if error 1205 (deadlock) | `DetectDeadlocks` |
-| `SqlException_DeadlockGraph` | `string` | XML deadlock graph from message | `IncludeDeadlockGraph` |
 | `SqlException_IsTimeout` | `bool` | True if timeout error | `ClassifyTimeouts` |
 | `SqlException_TimeoutType` | `string` | Command/Connection/Network/Unknown | `ClassifyTimeouts` |
 | `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors` |
@@ -169,7 +167,6 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "@l": "Error",
   "SqlException_Number": 1205,
   "SqlException_IsDeadlock": true,
-  "SqlException_DeadlockGraph": "<deadlock-list>...</deadlock-list>",
   "SqlException_ErrorCategory": "Resource",
   "SqlException_IsUserError": false,
   "SqlException_ShouldRetry": true,
@@ -207,7 +204,6 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `IncludeConnectionContext` | `bool` | `true` | Include server and database connection info |
 | `DetectTransientFailures` | `bool` | `true` | Identify transient errors suitable for retry |
 | `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
-| `IncludeDeadlockGraph` | `bool` | `true` | Extract XML deadlock graph from error message |
 | `ClassifyTimeouts` | `bool` | `true` | Classify timeout errors by type |
 | `CategorizeErrors` | `bool` | `true` | Add error category and user error properties |
 | `ProvideRetryGuidance` | `bool` | `true` | Add retry recommendation properties |
@@ -224,13 +220,15 @@ The enricher implements `ILogEventEnricher` and performs the following operation
 1. **Exception Chain Traversal**: Walks through `InnerException` references to locate `SqlException` instances
 2. **Circular Reference Protection**: Uses a `HashSet<Exception>` to detect and break circular chains
 3. **Property Extraction**: Extracts properties from `SqlError` instances in the `SqlException.Errors` collection
-4. **Deadlock Detection**: Identifies error 1205 and extracts XML deadlock graphs using regex
+4. **Deadlock Detection**: Identifies error 1205 and flags it as a deadlock
 5. **Timeout Classification**: Maps error numbers to timeout types (Command: -2, Connection: -1, Network: 10060/10061)
 6. **Error Categorization**: Maps 50+ error numbers to logical categories and user/system classification
 7. **Retry Guidance**: Analyzes error types to provide retry recommendations with strategy and timing
 8. **Severity Mapping**: Converts SQL Server Class values (1-25) to human-readable severity levels
 9. **OpenTelemetry Integration**: Optionally translates properties to OTel semantic conventions and emits ActivityEvents
 10. **Safe Property Addition**: Uses `AddPropertyIfAbsent()` to avoid overwriting existing properties
+
+> **Note on Deadlock Graphs**: SQL Server does not include deadlock graph XML in the `SqlException` error message. Deadlock graphs are only available in the SQL Server error log when trace flags 1204 or 1222 are enabled. This enricher detects deadlock errors (1205) but cannot extract the graph data from the exception itself.
 
 ## Usage Examples
 
@@ -239,14 +237,18 @@ The enricher implements `ILogEventEnricher` and performs the following operation
 ```csharp
 var options = new SqlExceptionEnricherOptions
 {
-    DetectDeadlocks = true,
-    IncludeDeadlockGraph = true
+    DetectDeadlocks = true
 };
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithSqlExceptionEnricher(options)
     .WriteTo.Seq("http://localhost:5341")
     .CreateLogger();
+
+// When a deadlock (error 1205) occurs, logs will include:
+// - SqlException_IsDeadlock: true
+// Note: Deadlock graphs are not available in SqlException.
+// Enable SQL Server trace flags 1204 or 1222 to write graphs to the error log.
 ```
 
 ### Retry Logic with Guidance

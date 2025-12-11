@@ -40,17 +40,15 @@ public class SqlExceptionEnricherOptions
 
     /// <summary>
     /// Gets or sets a value indicating whether to detect and flag deadlock errors specifically.
-    /// When enabled, adds SqlException_IsDeadlock property and attempts to extract deadlock graph.
+    /// When enabled, adds SqlException_IsDeadlock property for error number 1205.
     /// Default is <c>true</c>.
     /// </summary>
+    /// <remarks>
+    /// Note: Deadlock graphs are not included in SqlException error messages by default.
+    /// SQL Server writes deadlock graphs to the error log when trace flags 1204 or 1222 are enabled,
+    /// but these are not accessible through the SqlException object.
+    /// </remarks>
     public bool DetectDeadlocks { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to include the deadlock graph XML in enriched properties.
-    /// Only applies when DetectDeadlocks is true and a deadlock graph is present in the error message.
-    /// Default is <c>true</c>.
-    /// </summary>
-    public bool IncludeDeadlockGraph { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether to classify timeout errors by type
@@ -84,9 +82,9 @@ public class SqlExceptionEnricherOptions
     /// <summary>
     /// Gets or sets a value indicating whether to provide retry guidance properties
     /// including retry strategy, delay, and reasoning.
-    /// Default is <c>true</c>.
+    /// Default is <c>false</c>.
     /// </summary>
-    public bool ProvideRetryGuidance { get; set; } = true;
+    public bool ProvideRetryGuidance { get; set; } = false;
 
     /// <summary>
     /// Gets or sets a value indicating whether to include human-readable severity levels
@@ -114,13 +112,6 @@ public class SqlExceptionEnricherOptions
     /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
     public void Validate()
     {
-        if (IncludeDeadlockGraph && !DetectDeadlocks)
-        {
-            throw new InvalidOperationException(
-                "IncludeDeadlockGraph requires DetectDeadlocks to be enabled. " +
-                "Set DetectDeadlocks = true or disable IncludeDeadlockGraph.");
-        }
-
         if (string.IsNullOrWhiteSpace(PropertyPrefix))
         {
             throw new ArgumentException(

@@ -6,22 +6,6 @@ namespace Serilog.Enrichers.SqlException.Tests;
 public class ConfigurationValidationTests
 {
     [Fact]
-    public void Constructor_ThrowsException_WhenDeadlockGraphEnabledButDetectionDisabled()
-    {
-        // Arrange
-        var options = new SqlExceptionEnricherOptions
-        {
-            DetectDeadlocks = false,
-            IncludeDeadlockGraph = true
-        };
-
-        // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(() => new SqlExceptionEnricher(options));
-        Assert.Contains("IncludeDeadlockGraph", exception.Message);
-        Assert.Contains("DetectDeadlocks", exception.Message);
-    }
-
-    [Fact]
     public void Constructor_ThrowsException_WhenPropertyPrefixIsEmpty()
     {
         // Arrange
@@ -56,7 +40,6 @@ public class ConfigurationValidationTests
         var options = new SqlExceptionEnricherOptions
         {
             DetectDeadlocks = true,
-            IncludeDeadlockGraph = true,
             PropertyPrefix = "Sql_"
         };
 
@@ -66,13 +49,12 @@ public class ConfigurationValidationTests
     }
 
     [Fact]
-    public void Constructor_Succeeds_WhenBothDeadlockOptionsDisabled()
+    public void Constructor_Succeeds_WhenDeadlockDetectionDisabled()
     {
         // Arrange
         var options = new SqlExceptionEnricherOptions
         {
-            DetectDeadlocks = false,
-            IncludeDeadlockGraph = false
+            DetectDeadlocks = false
         };
 
         // Act & Assert - should not throw
