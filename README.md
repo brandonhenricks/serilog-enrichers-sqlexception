@@ -192,7 +192,7 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "db.error.code": 1205,
   "db.error.state": 13,
   "db.error.severity": 20,
-  "db.operation.name": "sp_UpdateInventory",
+  "db.operation": "sp_UpdateInventory",
   "server.address": "sql-prod-01",
   "db.error.is_deadlock": true,
   "db.error.category": "Resource",
