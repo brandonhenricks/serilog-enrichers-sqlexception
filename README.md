@@ -71,7 +71,7 @@ using Serilog.Enrichers.SqlException.Configurations;
 var options = new SqlExceptionEnricherOptions
 {
     // Core options
-    PropertyPrefix = "Sql",              // Default: "SqlException"
+    PropertyPrefix = "Sql",              // Default: "SqlException_"
     IncludeAllErrors = true,             // Enrich all errors in collection
     IncludeConnectionContext = true,     // Add server/database info
     DetectTransientFailures = true,      // Identify transient errors
