@@ -59,6 +59,12 @@ public class SqlExceptionEnricher : ILogEventEnricher
     public SqlExceptionEnricher(SqlExceptionEnricherOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _options.Validate();
+
+        if (_options.EnableDiagnostics)
+        {
+            _options.DiagnosticLogger?.Invoke("SqlExceptionEnricher initialized with configured options");
+        }
     }
 
     /// <summary>
@@ -77,7 +83,16 @@ public class SqlExceptionEnricher : ILogEventEnricher
 
         if (sqlException == null || sqlException.Errors.Count == 0)
         {
+            if (_options.EnableDiagnostics)
+            {
+                _options.DiagnosticLogger?.Invoke("No SqlException found in exception chain");
+            }
             return;
+        }
+
+        if (_options.EnableDiagnostics)
+        {
+            _options.DiagnosticLogger?.Invoke($"SqlException found with {sqlException.Errors.Count} error(s)");
         }
 
         // Add marker property
@@ -128,8 +143,25 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithErrorCategorization(logEvent, propertyFactory, firstError);
         }
 
+        // Provide retry guidance if enabled
+        if (_options.ProvideRetryGuidance)
+        {
+            EnrichWithRetryGuidance(logEvent, propertyFactory, firstError);
+        }
+
+        // Include severity level if enabled
+        if (_options.IncludeSeverityLevel)
+        {
+            EnrichWithSeverityLevel(logEvent, propertyFactory, firstError);
+        }
+
         // Emit OpenTelemetry events if enabled
         EmitOpenTelemetryEvent(sqlException, firstError);
+
+        if (_options.EnableDiagnostics)
+        {
+            _options.DiagnosticLogger?.Invoke($"Enrichment complete - {logEvent.Properties.Count} total properties");
+        }
     }
 
     private void EnrichWithSqlError(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error, string suffix)
@@ -247,11 +279,52 @@ public class SqlExceptionEnricher : ILogEventEnricher
         AddProperty(logEvent, propertyFactory, "IsSystemError", !isUserError);
     }
 
+    private void EnrichWithRetryGuidance(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
+    {
+        var shouldRetry = RetryAdvisor.ShouldRetry(error.Number);
+        AddProperty(logEvent, propertyFactory, "ShouldRetry", shouldRetry);
+        AddProperty(logEvent, propertyFactory, "RetryStrategy", RetryAdvisor.GetRetryStrategy(error.Number));
+        AddProperty(logEvent, propertyFactory, "SuggestedRetryDelay", RetryAdvisor.GetSuggestedDelay(error.Number));
+        AddProperty(logEvent, propertyFactory, "MaxRetries", RetryAdvisor.GetMaxRetries(error.Number));
+        
+        var reason = RetryAdvisor.GetRetryReason(error.Number);
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            AddProperty(logEvent, propertyFactory, "RetryReason", reason);
+        }
+
+        if (_options.EnableDiagnostics)
+        {
+            _options.DiagnosticLogger?.Invoke($"Retry guidance: {(shouldRetry ? "Retry recommended" : "Do not retry")} - {reason}");
+        }
+    }
+
+    private void EnrichWithSeverityLevel(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
+    {
+        var severityLevel = error.Class switch
+        {
+            <= 10 => SqlSeverityLevel.Informational,
+            <= 13 => SqlSeverityLevel.Warning,
+            <= 16 => SqlSeverityLevel.Error,
+            <= 19 => SqlSeverityLevel.Severe,
+            <= 24 => SqlSeverityLevel.Critical,
+            _ => SqlSeverityLevel.Fatal
+        };
+
+        AddProperty(logEvent, propertyFactory, "SeverityLevel", severityLevel.ToString());
+        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention", error.Class >= 20);
+    }
+
     private void EmitOpenTelemetryEvent(Microsoft.Data.SqlClient.SqlException sqlException, SqlError firstError)
     {
         if (_options.EmitActivityEvents)
         {
             OpenTelemetryHelper.EmitActivityEvent(sqlException, firstError);
+            
+            if (_options.EnableDiagnostics)
+            {
+                _options.DiagnosticLogger?.Invoke("ActivityEvent emitted for OpenTelemetry");
+            }
         }
     }
 

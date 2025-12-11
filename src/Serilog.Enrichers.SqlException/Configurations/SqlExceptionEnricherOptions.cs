@@ -73,4 +73,58 @@ public class SqlExceptionEnricherOptions
     /// Default is <c>false</c>.
     /// </summary>
     public bool EmitActivityEvents { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to provide retry guidance properties
+    /// including retry strategy, delay, and reasoning.
+    /// Default is <c>true</c>.
+    /// </summary>
+    public bool ProvideRetryGuidance { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to include human-readable severity levels
+    /// in addition to SQL Server Class values.
+    /// Default is <c>true</c>.
+    /// </summary>
+    public bool IncludeSeverityLevel { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to enable diagnostic logging.
+    /// When enabled, the enricher will call the DiagnosticLogger action with debug information.
+    /// Default is <c>false</c>.
+    /// </summary>
+    public bool EnableDiagnostics { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets an optional diagnostic logger action.
+    /// Called when EnableDiagnostics is true to provide troubleshooting information.
+    /// </summary>
+    public Action<string>? DiagnosticLogger { get; set; }
+
+    /// <summary>
+    /// Validates the configuration options for consistency.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
+    public void Validate()
+    {
+        if (IncludeDeadlockGraph && !DetectDeadlocks)
+        {
+            throw new InvalidOperationException(
+                "IncludeDeadlockGraph requires DetectDeadlocks to be enabled. " +
+                "Set DetectDeadlocks = true or disable IncludeDeadlockGraph.");
+        }
+
+        if (string.IsNullOrWhiteSpace(PropertyPrefix))
+        {
+            throw new ArgumentException(
+                "PropertyPrefix cannot be null or whitespace. " +
+                "Use empty string for no prefix or provide a valid prefix.",
+                nameof(PropertyPrefix));
+        }
+
+        if (EmitActivityEvents && DiagnosticLogger != null)
+        {
+            DiagnosticLogger("ActivityEvents emission is enabled - ensure System.Diagnostics.Activity is available");
+        }
+    }
 }

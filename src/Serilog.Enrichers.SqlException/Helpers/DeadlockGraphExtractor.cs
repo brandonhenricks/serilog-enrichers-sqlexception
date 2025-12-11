@@ -20,9 +20,11 @@ internal static class DeadlockGraphExtractor
 {
     // Updated regex pattern to handle attributes and namespaces in the opening tag
     // Pattern: <deadlock-list[any attributes]>...</deadlock-list>
+    // Includes timeout to prevent ReDoS attacks on pathological input
     private static readonly Regex s_deadlockGraphPattern = new(
         @"<deadlock-list(?:\s+[^>]*)?>.*?</deadlock-list>",
-        RegexOptions.Singleline | RegexOptions.Compiled);
+        RegexOptions.Singleline | RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(100));
 
     /// <summary>
     /// Attempts to extract the deadlock graph XML from an error message.

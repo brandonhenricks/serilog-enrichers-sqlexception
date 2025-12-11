@@ -87,6 +87,13 @@ internal static class OpenTelemetryHelper
             "AllMessages" => "db.error.all_messages",
             "Line" => "db.error.line",
             "ConnectionTimeout" => "db.connection.timeout",
+            "ShouldRetry" => "db.error.retry.recommended",
+            "RetryStrategy" => "db.error.retry.strategy",
+            "SuggestedRetryDelay" => "db.error.retry.delay",
+            "MaxRetries" => "db.error.retry.max_attempts",
+            "RetryReason" => "db.error.retry.reason",
+            "SeverityLevel" => "db.error.severity.level",
+            "RequiresImmediateAttention" => "db.error.critical",
             _ => $"db.{semantic.ToLowerInvariant()}"
         };
     }

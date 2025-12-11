@@ -22,6 +22,12 @@ A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlC
 - **OpenTelemetry Integration**: Optional semantic convention property naming for OTel compatibility
 - **Activity Event Emission**: Emit errors as OpenTelemetry ActivityEvents for distributed tracing
 
+### Intelligence Features (Phase 3)
+- **Retry Guidance**: Automatic retry recommendations with strategy, delay, and max retry counts for 50+ error types
+- **Severity Levels**: Human-readable severity classification (Informational → Fatal) mapped from SQL Server Class values
+- **Configuration Validation**: Prevents invalid option combinations at initialization time
+- **Diagnostic Logging**: Optional troubleshooting output for enricher operations
+
 ## Installation
 
 Install via NuGet Package Manager:
@@ -82,7 +88,13 @@ var options = new SqlExceptionEnricherOptions
     ClassifyTimeouts = true,             // Classify timeout types
     CategorizeErrors = true,             // Categorize by error type
     UseOpenTelemetrySemantics = true,    // Use OTel property names
-    EmitActivityEvents = true            // Emit as OTel ActivityEvents
+    EmitActivityEvents = true,           // Emit as OTel ActivityEvents
+    
+    // Phase 3 options
+    ProvideRetryGuidance = true,         // Add retry recommendations
+    IncludeSeverityLevel = true,         // Add human-readable severity
+    EnableDiagnostics = false,           // Enable diagnostic logging
+    DiagnosticLogger = msg => Debug.WriteLine(msg)  // Custom diagnostic output
 };
 
 Log.Logger = new LoggerConfiguration()
@@ -124,8 +136,29 @@ Additional properties when advanced features are enabled:
 | `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors = true` |
 | `SqlException_IsUserError` | `bool` | True if user-caused (syntax, constraint violations, etc.) | `CategorizeErrors = true` |
 
-### OpenTelemetry Semantic Conventions
+### Phase 3 Properties
 
+Intelligence properties when Phase 3 features are enabled:
+
+| Property | Type | Description | Required Option |
+|----------|------|-------------|-----------------|
+| `SqlException_ShouldRetry` | `bool` | Recommendation whether to retry operation | `ProvideRetryGuidance = true` |
+| `SqlException_RetryStrategy` | `string` | None/Immediate/Linear/Exponential | `ProvideRetryGuidance = true` |
+| `SqlException_SuggestedRetryDelay` | `TimeSpan` | Recommended initial retry delay | `ProvideRetryGuidance = true` |
+| `SqlException_MaxRetries` | `int` | Maximum suggested retry attempts | `ProvideRetryGuidance = true` |
+| `SqlException_RetryReason` | `string` | Explanation of retry recommendation | `ProvideRetryGuidance = true` |
+| `SqlException_SeverityLevel` | `string` | Informational/Warning/Error/Severe/Critical/Fatal | `IncludeSeverityLevel = true` |
+| `SqlException_RequiresImmediateAttention` | `bool` | True for Class ≥ 20 (severe system errors) | `IncludeSeverityLevel = true` |
+| `SqlException_IsTimeout` | `db.error.timeout` |
+| `SqlException_TimeoutType` | `db.error.timeout.type` |
+| `SqlException_IsDeadlock` | `db.error.deadlock` |
+| `SqlException_ShouldRetry` | `db.error.retry.recommended` |
+| `SqlException_RetryStrategy` | `db.error.retry.strategy` |
+| `SqlException_SuggestedRetryDelay` | `db.error.retry.delay` |
+| `SqlException_MaxRetries` | `db.error.retry.max_attempts` |
+| `SqlException_RetryReason` | `db.error.retry.reason` |
+| `SqlException_SeverityLevel` | `db.error.severity.level` |
+| `SqlException_RequiresImmediateAttention` | `db.error.critical` |
 When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 
 | Standard Property | OpenTelemetry Property |
@@ -213,20 +246,35 @@ The enricher can be customized via `SqlExceptionEnricherOptions`:
 | `IncludeConnectionContext` | `bool` | `true` | Include server and database connection info |
 | `DetectTransientFailures` | `bool` | `true` | Identify transient errors suitable for retry |
 
-### Phase 2 Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
-| `IncludeDeadlockGraph` | `bool` | `true` | Extract XML deadlock graph from error message |
-| `ClassifyTimeouts` | `bool` | `true` | Add timeout classification properties |
 | `CategorizeErrors` | `bool` | `true` | Add error category and user error properties |
 | `UseOpenTelemetrySemantics` | `bool` | `false` | Use OTel semantic convention property names |
 | `EmitActivityEvents` | `bool` | `false` | Emit errors as OpenTelemetry ActivityEvents |
 
-### Example: Full Configuration
+### Phase 3 Options
 
-```csharp
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `ProvideRetryGuidance` | `bool` | `true` | Add retry recommendation properties |
+| `IncludeSeverityLevel` | `bool` | `true` | Add human-readable severity level classification |
+| `EnableDiagnostics` | `bool` | `false` | Enable diagnostic logging for troubleshooting |
+| `DiagnosticLogger` | `Action<string>` | `null` | Custom diagnostic log output handler |
+|--------|------|---------|-------------|
+| `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
+| `IncludeDeadlockGraph` | `bool` | `true` | Extract XML deadlock graph from error message |
+    // Phase 2 options
+    DetectDeadlocks = true,                  // Detect deadlocks
+    IncludeDeadlockGraph = true,             // Extract deadlock XML
+    ClassifyTimeouts = true,                 // Classify timeout types
+    CategorizeErrors = true,                 // Categorize all errors
+    UseOpenTelemetrySemantics = false,       // Use custom prefix (not OTel names)
+    EmitActivityEvents = true,               // Emit to OTel Activity
+    
+    // Phase 3 options
+    ProvideRetryGuidance = true,             // Add retry recommendations
+    IncludeSeverityLevel = true,             // Add severity levels
+    EnableDiagnostics = false,               // Disable diagnostic logging
+    DiagnosticLogger = null                  // No diagnostic output
+};`csharp
 var options = new SqlExceptionEnricherOptions
 {
     // Core options
@@ -268,10 +316,39 @@ When advanced features are enabled:
 #### Deadlock Detection
 - Checks if error number is 1205
 - Extracts XML deadlock graph using regex pattern matching
-- Graph format: `<deadlock-list>...</deadlock-list>` or `<deadlock>...</deadlock>`
-- Useful for analyzing deadlock participants and resources
+#### OpenTelemetry Integration
+- Translates 20+ properties to OTel semantic conventions
+- Optionally emits errors as `ActivityEvent` instances on current `Activity`
+- Supports distributed tracing and APM tools (Application Insights, Jaeger, Zipkin, etc.)
 
-#### Timeout Classification
+#### Retry Guidance (Phase 3)
+- Analyzes 50+ SQL error numbers to provide retry recommendations
+- Suggests retry strategy: None, Immediate, Linear, Exponential
+- Provides suggested delay and maximum retry counts
+- Distinguishes between transient failures (retry) and permanent errors (don't retry)
+- Examples:
+  - Deadlock (1205) → Retry with exponential backoff, 3 attempts
+  - PK violation (2627) → Don't retry (permanent constraint violation)
+  - Connection timeout (-1) → Retry with linear backoff, 5 attempts
+
+#### Severity Level Classification (Phase 3)
+- Maps SQL Server Class values (1-25) to human-readable severity levels
+- Six severity levels:
+  - **Informational** (Class 1-10): Informational messages, low severity
+  - **Warning** (Class 11-13): Warnings, possible issues
+  - **Error** (Class 14-16): User-correctable errors
+  - **Severe** (Class 17-19): Software/hardware errors
+  - **Critical** (Class 20-24): System errors, connection terminated
+  - **Fatal** (Class 25): Fatal system errors
+- Adds `RequiresImmediateAttention` flag for Class ≥ 20
+
+#### Configuration Validation (Phase 3)
+- Validates options at initialization to catch configuration errors early
+- Prevents invalid combinations:
+  - `IncludeDeadlockGraph = true` requires `DetectDeadlocks = true`
+  - `PropertyPrefix` cannot be empty or whitespace
+  - `DiagnosticLogger` required when `EnableDiagnostics = true`
+- Throws `InvalidOperationException` with clear error messages
 - Maps error numbers to timeout types:
   - `-2` → Command timeout
   - `-1` → Connection timeout  
@@ -434,28 +511,150 @@ Log.Logger = new LoggerConfiguration()
     })
     .Enrich.FromLogContext()
     .WriteTo.Seq("http://localhost:5341")
-    .CreateLogger();
-```
+### Retry Guidance
 
-### Filtering by SQL Error Number
+Automatically determine which errors should be retried and how:
 
 ```csharp
+var options = new SqlExceptionEnricherOptions
+{
+    ProvideRetryGuidance = true
+};
+
 Log.Logger = new LoggerConfiguration()
-    .Enrich.WithSqlExceptionEnricher()
-    .WriteTo.Logger(lc => lc
-        .Filter.ByIncludingOnly(le => 
-            le.Properties.TryGetValue("SqlException_Number", out var number) &&
-            number.ToString() == "1205") // Deadlock errors only
-        .WriteTo.Seq("http://localhost:5341"))
+    .Enrich.WithSqlExceptionEnricher(options)
+    .WriteTo.Seq("http://localhost:5341")
     .CreateLogger();
+
+// When errors occur, logs include retry guidance:
+// - SqlException_ShouldRetry: true/false
+// - SqlException_RetryStrategy: "Exponential"
+// - SqlException_SuggestedRetryDelay: "00:00:01"
+// - SqlException_MaxRetries: 3
+// - SqlException_RetryReason: "Transient deadlock, retry with exponential backoff"
 ```
 
-### Alerting on Critical Errors
+Implement automatic retry logic based on guidance:
+
+```csharp
+if (logEvent.Properties.TryGetValue("SqlException_ShouldRetry", out var shouldRetry) && 
+    shouldRetry.ToString() == "True")
+{
+    var strategy = logEvent.Properties["SqlException_RetryStrategy"].ToString();
+    var maxRetries = int.Parse(logEvent.Properties["SqlException_MaxRetries"].ToString());
+    
+    // Implement retry with Polly or custom logic
+    await Policy
+        .Handle<SqlException>()
+        .WaitAndRetryAsync(maxRetries, retryAttempt => 
+            strategy == "Exponential" 
+                ? TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))
+                : TimeSpan.FromSeconds(retryAttempt))
+        .ExecuteAsync(() => yourDatabaseOperation());
+}
+```
+
+### Severity Level Classification
+
+Get human-readable severity levels instead of numeric Class values:
+
+```csharp
+var options = new SqlExceptionEnricherOptions
+{
+    IncludeSeverityLevel = true
+};
+
+// Severity levels:
+// - Informational (Class 1-10): Low severity messages
+// - Warning (Class 11-13): Possible issues
+// - Error (Class 14-16): User errors
+// - Severe (Class 17-19): Software/hardware errors
+// - Critical (Class 20-24): System errors
+// - Fatal (Class 25): Fatal errors
+
+// Errors with Class >= 20 also get:
+// - SqlException_RequiresImmediateAttention: true
+```
+
+Alert on critical errors:
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithSqlExceptionEnricher(new SqlExceptionEnricherOptions
     {
+        IncludeSeverityLevel = true
+    })
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(le =>
+            le.Properties.TryGetValue("SqlException_RequiresImmediateAttention", out var attention) &&
+            attention.ToString() == "True")
+        .WriteTo.Email(
+            fromEmail: "alerts@company.com",
+            toEmail: "dba@company.com",
+            mailServer: "smtp.company.com"))
+    .CreateLogger();
+```
+
+### Diagnostic Logging
+
+Enable diagnostic output for troubleshooting enricher behavior:
+
+```csharp
+var options = new SqlExceptionEnricherOptions
+{
+    EnableDiagnostics = true,
+    DiagnosticLogger = msg => Debug.WriteLine($"[SqlEnricher] {msg}")
+};
+
+// Diagnostic output includes:
+// - "SqlExceptionEnricher initialized with configured options"
+// - "SqlException found with 1 error(s)"
+// - "Retry guidance: Retry recommended - Transient deadlock..."
+// - "Enrichment complete - 15 total properties"
+```
+
+### Querying Enriched Logs in Seq
+
+```sql
+-- Find all deadlock errors
+SqlException_Number = 1205
+SqlException_IsDeadlock = true
+
+-- Find errors in specific stored procedure
+SqlException_Procedure = 'sp_UpdateInventory'
+
+-- Find high-severity errors (16+)
+SqlException_Class >= 16
+### Phase 2 Tests
+- **Deadlock Detection**: Error 1205 detection, XML graph extraction, configuration options
+- **Timeout Classification**: Command/Connection/Network timeout detection, configuration options
+- **Error Categorization**: All 7 categories, user vs system errors, unknown error handling
+- **OpenTelemetry Integration**: Semantic convention property naming, custom prefix fallback
+
+### Phase 3 Tests
+- **Retry Guidance**: Deadlock retry (exponential), PK violation no-retry, connection timeout retry, transient error detection
+- **Severity Levels**: All class ranges (1-25), critical attention flags, severity mapping accuracy
+- **Configuration Validation**: Invalid combinations, valid configurations, diagnostic logger invocation
+SqlException_ErrorCategory = 'Constraint'
+
+-- Find user errors vs system errors
+SqlException_IsUserError = true
+
+-- Phase 3 queries:
+
+-- Find retryable errors
+SqlException_ShouldRetry = true
+
+-- Find errors needing exponential backoff
+SqlException_RetryStrategy = 'Exponential'
+
+-- Find critical/fatal errors
+SqlException_SeverityLevel in ('Critical', 'Fatal')
+SqlException_RequiresImmediateAttention = true
+
+-- Find errors by severity
+SqlException_SeverityLevel = 'Error'
+``` {
         CategorizeErrors = true
     })
     .WriteTo.Logger(lc => lc
