@@ -208,7 +208,7 @@ The enricher can be customized via `SqlExceptionEnricherOptions`:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `PropertyPrefix` | `string` | `"SqlException"` | Prefix for all enriched properties |
+| `PropertyPrefix` | `string` | `"SqlException_"` | Prefix for all enriched properties |
 | `IncludeAllErrors` | `bool` | `true` | Include all errors in Errors collection (not just first) |
 | `IncludeConnectionContext` | `bool` | `true` | Include server and database connection info |
 | `DetectTransientFailures` | `bool` | `true` | Identify transient errors suitable for retry |
