@@ -129,9 +129,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithSeverityLevel(logEvent, propertyFactory, firstError);
         }
 
-        // Emit OpenTelemetry events if enabled
-        EmitOpenTelemetryEvent(sqlException, firstError);
-
         if (_options.EnableDiagnostics)
         {
             _options.DiagnosticLogger?.Invoke($"Enrichment complete - {logEvent.Properties.Count} total properties");
@@ -282,19 +279,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
         // Class 20+ indicates severe system problems requiring immediate attention
         AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention", 
             error.Class >= SqlExceptionConstants.SeverityThresholds.ImmediateAttentionRequired);
-    }
-
-    private void EmitOpenTelemetryEvent(Microsoft.Data.SqlClient.SqlException sqlException, SqlError firstError)
-    {
-        if (_options.EmitActivityEvents)
-        {
-            OpenTelemetryHelper.EmitActivityEvent(sqlException, firstError);
-
-            if (_options.EnableDiagnostics)
-            {
-                _options.DiagnosticLogger?.Invoke("ActivityEvent emitted for OpenTelemetry");
-            }
-        }
     }
 
     private void AddProperty(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, string name, object value)

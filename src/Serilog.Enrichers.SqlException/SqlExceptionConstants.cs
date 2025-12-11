@@ -49,15 +49,4 @@ internal static class SqlExceptionConstants
 
         // Class 25 is Fatal (implicit from ranges above)
     }
-
-    /// <summary>
-    /// OpenTelemetry-related constants.
-    /// </summary>
-    public static class OpenTelemetry
-    {
-        /// <summary>
-        /// The ActivitySource name for OpenTelemetry integration.
-        /// </summary>
-        public const string ActivitySourceName = "Serilog.Enrichers.SqlException";
-    }
 }

@@ -73,13 +73,6 @@ public class SqlExceptionEnricherOptions
     public bool UseOpenTelemetrySemantics { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to emit OpenTelemetry ActivityEvents
-    /// for each SqlException encountered. Requires System.Diagnostics.DiagnosticSource.
-    /// Default is <c>false</c>.
-    /// </summary>
-    public bool EmitActivityEvents { get; set; } = false;
-
-    /// <summary>
     /// Gets or sets a value indicating whether to provide retry guidance properties
     /// including retry strategy, delay, and reasoning.
     /// Default is <c>false</c>.
@@ -118,11 +111,6 @@ public class SqlExceptionEnricherOptions
                 "PropertyPrefix cannot be null or whitespace. " +
                 "Use empty string for no prefix or provide a valid prefix.",
                 nameof(PropertyPrefix));
-        }
-
-        if (EmitActivityEvents && DiagnosticLogger != null)
-        {
-            DiagnosticLogger("ActivityEvents emission is enabled - ensure System.Diagnostics.Activity is available");
         }
     }
 }

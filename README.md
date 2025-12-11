@@ -14,7 +14,7 @@ A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlC
 - **Error Categorization**: Classifies errors into logical categories (Connectivity, Syntax, Permission, Constraint, Resource, Corruption, Concurrency)
 - **Retry Guidance**: Automatic retry recommendations with strategy, delay, and max retry counts for 50+ error types
 - **Severity Levels**: Human-readable severity classification (Informational → Fatal) mapped from SQL Server Class values
-- **OpenTelemetry Integration**: Optional semantic convention property naming and ActivityEvent emission for distributed tracing
+- **OpenTelemetry Integration**: Optional semantic convention property naming for distributed tracing compatibility
 - **Configuration Validation**: Prevents invalid option combinations at initialization time
 - **Zero Configuration**: Works out of the box with a single fluent API call
 - **Broad Compatibility**: Targets .NET Standard 2.0 for wide framework support
@@ -73,7 +73,6 @@ var options = new SqlExceptionEnricherOptions
     ProvideRetryGuidance = true,             // Add retry recommendations
     IncludeSeverityLevel = true,             // Add human-readable severity
     UseOpenTelemetrySemantics = true,        // Use OTel property names
-    EmitActivityEvents = true,               // Emit as OTel ActivityEvents
     EnableDiagnostics = false,               // Enable diagnostic logging
     DiagnosticLogger = msg => Debug.WriteLine(msg)
 };
@@ -209,7 +208,6 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `ProvideRetryGuidance` | `bool` | `true` | Add retry recommendation properties |
 | `IncludeSeverityLevel` | `bool` | `true` | Add human-readable severity level classification |
 | `UseOpenTelemetrySemantics` | `bool` | `false` | Use OTel semantic convention property names |
-| `EmitActivityEvents` | `bool` | `false` | Emit errors as OpenTelemetry ActivityEvents |
 | `EnableDiagnostics` | `bool` | `false` | Enable diagnostic logging for troubleshooting |
 | `DiagnosticLogger` | `Action<string>` | `null` | Custom diagnostic log output handler |
 
@@ -225,7 +223,7 @@ The enricher implements `ILogEventEnricher` and performs the following operation
 6. **Error Categorization**: Maps 50+ error numbers to logical categories and user/system classification
 7. **Retry Guidance**: Analyzes error types to provide retry recommendations with strategy and timing
 8. **Severity Mapping**: Converts SQL Server Class values (1-25) to human-readable severity levels
-9. **OpenTelemetry Integration**: Optionally translates properties to OTel semantic conventions and emits ActivityEvents
+9. **OpenTelemetry Integration**: Optionally translates properties to OTel semantic conventions
 10. **Safe Property Addition**: Uses `AddPropertyIfAbsent()` to avoid overwriting existing properties
 
 > **Note on Deadlock Graphs**: SQL Server does not include deadlock graph XML in the `SqlException` error message. Deadlock graphs are only available in the SQL Server error log when trace flags 1204 or 1222 are enabled. This enricher detects deadlock errors (1205) but cannot extract the graph data from the exception itself.

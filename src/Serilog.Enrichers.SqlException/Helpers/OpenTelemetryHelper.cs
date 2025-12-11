@@ -1,59 +1,10 @@
-﻿using System.Diagnostics;
-
-namespace Serilog.Enrichers.SqlException.Helpers;
+﻿namespace Serilog.Enrichers.SqlException.Helpers;
 
 /// <summary>
-/// Provides OpenTelemetry integration for SQL exceptions.
+/// Provides OpenTelemetry semantic convention mappings for SQL exception properties.
 /// </summary>
 internal static class OpenTelemetryHelper
 {
-    private static readonly ActivitySource s_activitySource = 
-        new(SqlExceptionConstants.OpenTelemetry.ActivitySourceName, "1.0.0");
-
-    /// <summary>
-    /// Emits an OpenTelemetry ActivityEvent for a SQL exception.
-    /// </summary>
-    public static void EmitActivityEvent(Microsoft.Data.SqlClient.SqlException sqlException, Microsoft.Data.SqlClient.SqlError firstError)
-    {
-        var activity = Activity.Current;
-        if (activity == null)
-        {
-            return;
-        }
-
-        var tags = new ActivityTagsCollection
-        {
-            { "db.system", "mssql" },
-            { "error.type", "sql_exception" },
-            { "db.error.code", firstError.Number },
-            { "db.error.state", firstError.State },
-            { "db.error.severity", firstError.Class }
-        };
-
-        if (!string.IsNullOrWhiteSpace(firstError.Server))
-        {
-            tags.Add("server.address", firstError.Server);
-        }
-
-        if (!string.IsNullOrWhiteSpace(firstError.Procedure))
-        {
-            tags.Add("db.operation", firstError.Procedure);
-        }
-
-        if (!string.IsNullOrWhiteSpace(firstError.Message))
-        {
-            tags.Add("exception.message", firstError.Message);
-        }
-
-        if (sqlException.ClientConnectionId != Guid.Empty)
-        {
-            tags.Add("db.client.connection.id", sqlException.ClientConnectionId.ToString());
-        }
-
-        var activityEvent = new ActivityEvent("db.sql_exception", tags: tags);
-        activity.AddEvent(activityEvent);
-    }
-
     /// <summary>
     /// Gets the OpenTelemetry-compliant property name for a given semantic.
     /// </summary>
