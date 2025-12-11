@@ -1,4 +1,4 @@
-namespace Serilog.Enrichers.SqlException.Models;
+﻿namespace Serilog.Enrichers.SqlException.Models;
 
 /// <summary>
 /// Categorizes SQL timeout errors by type.

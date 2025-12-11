@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 
 namespace Serilog.Enrichers.SqlException.Helpers;

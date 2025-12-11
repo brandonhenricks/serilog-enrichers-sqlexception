@@ -1,4 +1,4 @@
-using Serilog.Enrichers.SqlException.Models;
+﻿using Serilog.Enrichers.SqlException.Models;
 
 namespace Serilog.Enrichers.SqlException.Helpers;
 
