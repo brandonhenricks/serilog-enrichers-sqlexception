@@ -10,7 +10,7 @@ namespace Serilog.Enrichers.SqlException.Helpers;
 /// This extractor uses a regex pattern to locate deadlock-list XML fragments within error messages.
 /// The pattern supports opening tags with attributes and namespaces. The extracted content is validated
 /// to ensure it is well-formed XML before being returned.
-/// 
+///
 /// Limitations:
 /// - Only extracts the first deadlock-list element found in the message
 /// - Requires the closing tag to match the opening tag name (deadlock-list)
@@ -43,7 +43,7 @@ internal static class DeadlockGraphExtractor
         if (match.Success)
         {
             var potentialGraph = match.Value;
-            
+
             // Validate that the extracted content is well-formed XML
             if (IsWellFormedXml(potentialGraph))
             {
@@ -75,7 +75,7 @@ internal static class DeadlockGraphExtractor
 
             using var stringReader = new System.IO.StringReader(xml);
             using var xmlReader = XmlReader.Create(stringReader, settings);
-            
+
             // Read through the entire XML to validate it
             while (xmlReader.Read())
             {
