@@ -372,10 +372,10 @@ The test suite uses xUnit and covers:
 
 - SqlException detection in exception chains
 - Property extraction and enrichment
-- Deadlock detection and XML graph extraction
+- Deadlock detection (error 1205)
 - Timeout classification (Command/Connection/Network)
 - Error categorization (7 categories, user vs system errors)
-- Retry guidance for 50+ error types
+- Transient error detection
 - Severity level mapping (6 levels: Informational → Fatal)
 - OpenTelemetry semantic conventions
 - Configuration validation
