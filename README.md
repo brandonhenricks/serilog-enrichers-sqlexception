@@ -231,8 +231,14 @@ Log.Logger = new LoggerConfiguration()
 ### Transient Error Detection
 
 ```csharp
+// Route transient errors to a separate sink for retry handling
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithSqlExceptionEnricher()
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(le =>
+            le.Properties.TryGetValue("SqlException_IsTransient", out var isTransient) &&
+            isTransient.ToString() == "True")
+        .WriteTo.File("logs/transient-errors.txt"))
     .WriteTo.Console()
     .CreateLogger();
 
@@ -242,15 +248,9 @@ try
 }
 catch (Exception ex)
 {
+    // Transient errors are automatically logged to transient-errors.txt
+    // where your retry logic can monitor and process them
     Log.Error(ex, "Database operation failed");
-    
-    // IsTransient is always included - check if retry should be attempted
-    if (logEvent.Properties.TryGetValue("SqlException_IsTransient", out var isTransient) && 
-        isTransient.ToString() == "True")
-    {
-        // Implement your own retry strategy based on your requirements
-        Log.Information("Transient error detected - consider retrying operation");
-    }
 }
 ```
 
