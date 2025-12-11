@@ -68,7 +68,7 @@ public class SqlExceptionEnricherOptions
     /// <summary>
     /// Validates the configuration options for consistency.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
+    /// <exception cref="ArgumentException">Thrown when <see cref="PropertyPrefix"/> is null or whitespace.</exception>
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(PropertyPrefix))
