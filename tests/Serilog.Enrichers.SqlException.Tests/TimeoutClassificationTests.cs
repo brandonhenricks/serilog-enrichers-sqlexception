@@ -4,6 +4,7 @@ using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Enrichers.SqlException.Enrichers;
 using Serilog.Events;
+using static Serilog.Enrichers.SqlException.Tests.TestHelpers;
 
 namespace Serilog.Enrichers.SqlException.Tests;
 
@@ -85,19 +86,5 @@ public class TimeoutClassificationTests
             new object[] { errorMessage, sqlErrorCollection!, innerException, Guid.NewGuid() });
 
         return sqlException;
-    }
-
-    private static LogEvent CreateLogEvent(System.Exception? ex)
-    {
-        return new LogEvent(DateTimeOffset.Now, LogEventLevel.Error, ex, MessageTemplate.Empty, Array.Empty<LogEventProperty>());
-    }
-
-    private class SimplePropertyFactory : ILogEventPropertyFactory
-    {
-        public LogEventProperty CreateProperty(string name, object? value, bool destructureObjects = false)
-        {
-            var propertyValue = new ScalarValue(value);
-            return new LogEventProperty(name, propertyValue);
-        }
     }
 }
