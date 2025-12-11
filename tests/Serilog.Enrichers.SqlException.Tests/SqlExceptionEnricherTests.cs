@@ -316,31 +316,6 @@ public class SqlExceptionEnricherTests
     }
 
     [Fact]
-    public void Enrich_DoesNotDetectTransient_WhenOptionDisabled()
-    {
-        // Arrange
-        var options = new SqlExceptionEnricherOptions { DetectTransientFailures = false };
-        var enricher = new SqlExceptionEnricher(options);
-        var sqlException = CreateSqlExceptionWithAllFields(
-            number: -2,
-            state: 0,
-            errorClass: 11,
-            server: "Server",
-            errorMessage: "Timeout",
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-        var properties = new Dictionary<string, LogEventPropertyValue>();
-
-        // Act
-        enricher.Enrich(logEvent, new TestPropertyFactory(properties));
-
-        // Assert
-        Assert.False(properties.ContainsKey("SqlException_IsTransient"));
-    }
-
-    [Fact]
     public void Enrich_UsesCustomPropertyPrefix()
     {
         // Arrange

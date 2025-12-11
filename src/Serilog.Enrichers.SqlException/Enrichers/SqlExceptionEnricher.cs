@@ -224,9 +224,9 @@ public class SqlExceptionEnricher : ILogEventEnricher
         };
 
         AddProperty(logEvent, propertyFactory, "SeverityLevel", severityLevel.ToString());
-        
+
         // Class 20+ indicates severe system problems requiring immediate attention
-        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention", 
+        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention",
             error.Class >= SqlExceptionConstants.SeverityThresholds.ImmediateAttentionRequired);
     }
 

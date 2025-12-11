@@ -1,4 +1,4 @@
-namespace Serilog.Enrichers.SqlException;
+﻿namespace Serilog.Enrichers.SqlException;
 
 /// <summary>
 /// Provides constants used throughout the SQL exception enricher.
