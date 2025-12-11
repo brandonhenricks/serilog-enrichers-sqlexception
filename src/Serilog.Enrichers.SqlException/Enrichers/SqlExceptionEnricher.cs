@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
+using Serilog.Enrichers.SqlException.Helpers;
+using Serilog.Enrichers.SqlException.Models;
 using Serilog.Events;
 
 namespace Serilog.Enrichers.SqlException.Enrichers;
@@ -107,6 +109,27 @@ public class SqlExceptionEnricher : ILogEventEnricher
             var isTransient = s_transientErrorNumbers.Contains(firstError.Number);
             AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
         }
+
+        // Detect deadlocks if enabled
+        if (_options.DetectDeadlocks)
+        {
+            EnrichWithDeadlockDetection(logEvent, propertyFactory, firstError);
+        }
+
+        // Classify timeouts if enabled
+        if (_options.ClassifyTimeouts)
+        {
+            EnrichWithTimeoutClassification(logEvent, propertyFactory, firstError);
+        }
+
+        // Categorize errors if enabled
+        if (_options.CategorizeErrors)
+        {
+            EnrichWithErrorCategorization(logEvent, propertyFactory, firstError);
+        }
+
+        // Emit OpenTelemetry events if enabled
+        EmitOpenTelemetryEvent(sqlException, firstError);
     }
 
     private void EnrichWithSqlError(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error, string suffix)
@@ -188,9 +211,56 @@ public class SqlExceptionEnricher : ILogEventEnricher
         }
     }
 
+    private void EnrichWithDeadlockDetection(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
+    {
+        var isDeadlock = SqlErrorCategorizer.IsDeadlock(error.Number);
+        AddProperty(logEvent, propertyFactory, "IsDeadlock", isDeadlock);
+
+        if (isDeadlock && _options.IncludeDeadlockGraph)
+        {
+            if (DeadlockGraphExtractor.TryExtractGraph(error.Message, out var graph))
+            {
+                AddProperty(logEvent, propertyFactory, "DeadlockGraph", graph!);
+            }
+        }
+    }
+
+    private void EnrichWithTimeoutClassification(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
+    {
+        var isTimeout = SqlErrorCategorizer.IsTimeout(error.Number);
+        AddProperty(logEvent, propertyFactory, "IsTimeout", isTimeout);
+
+        if (isTimeout)
+        {
+            var timeoutType = SqlErrorCategorizer.GetTimeoutType(error.Number);
+            AddProperty(logEvent, propertyFactory, "TimeoutType", timeoutType.ToString());
+        }
+    }
+
+    private void EnrichWithErrorCategorization(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
+    {
+        var category = SqlErrorCategorizer.GetCategory(error.Number);
+        AddProperty(logEvent, propertyFactory, "ErrorCategory", category.ToString());
+
+        var isUserError = SqlErrorCategorizer.IsUserError(error.Number);
+        AddProperty(logEvent, propertyFactory, "IsUserError", isUserError);
+        AddProperty(logEvent, propertyFactory, "IsSystemError", !isUserError);
+    }
+
+    private void EmitOpenTelemetryEvent(Microsoft.Data.SqlClient.SqlException sqlException, SqlError firstError)
+    {
+        if (_options.EmitActivityEvents)
+        {
+            OpenTelemetryHelper.EmitActivityEvent(sqlException, firstError);
+        }
+    }
+
     private void AddProperty(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, string name, object value)
     {
-        var propertyName = $"{_options.PropertyPrefix}{name}";
+        var propertyName = _options.UseOpenTelemetrySemantics
+            ? OpenTelemetryHelper.GetOtelPropertyName(name)
+            : $"{_options.PropertyPrefix}{name}";
+
         var property = propertyFactory.CreateProperty(propertyName, value);
         logEvent.AddPropertyIfAbsent(property);
     }
