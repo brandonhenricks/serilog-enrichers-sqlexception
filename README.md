@@ -106,11 +106,6 @@ Log.Logger = new LoggerConfiguration()
 | `SqlException_TimeoutType` | `string` | Command/Connection/Network/Unknown | `ClassifyTimeouts` |
 | `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors` |
 | `SqlException_IsUserError` | `bool` | True if user-caused (syntax, constraint violations, etc.) | `CategorizeErrors` |
-| `SqlException_ShouldRetry` | `bool` | Recommendation whether to retry operation | `ProvideRetryGuidance` |
-| `SqlException_RetryStrategy` | `string` | None/Immediate/Linear/Exponential | `ProvideRetryGuidance` |
-| `SqlException_SuggestedRetryDelay` | `TimeSpan` | Recommended initial retry delay | `ProvideRetryGuidance` |
-| `SqlException_MaxRetries` | `int` | Maximum suggested retry attempts | `ProvideRetryGuidance` |
-| `SqlException_RetryReason` | `string` | Explanation of retry recommendation | `ProvideRetryGuidance` |
 | `SqlException_SeverityLevel` | `string` | Informational/Warning/Error/Severe/Critical/Fatal | `IncludeSeverityLevel` |
 | `SqlException_RequiresImmediateAttention` | `bool` | True for Class ≥ 20 (severe system errors) | `IncludeSeverityLevel` |
 
