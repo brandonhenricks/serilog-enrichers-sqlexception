@@ -217,10 +217,10 @@ The enricher can be customized via `SqlExceptionEnricherOptions`:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `DetectDeadlocks` | `bool` | `false` | Add `IsDeadlock` property for error 1205 |
-| `IncludeDeadlockGraph` | `bool` | `false` | Extract XML deadlock graph from error message |
-| `ClassifyTimeouts` | `bool` | `false` | Add timeout classification properties |
-| `CategorizeErrors` | `bool` | `false` | Add error category and user error properties |
+| `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
+| `IncludeDeadlockGraph` | `bool` | `true` | Extract XML deadlock graph from error message |
+| `ClassifyTimeouts` | `bool` | `true` | Add timeout classification properties |
+| `CategorizeErrors` | `bool` | `true` | Add error category and user error properties |
 | `UseOpenTelemetrySemantics` | `bool` | `false` | Use OTel semantic convention property names |
 | `EmitActivityEvents` | `bool` | `false` | Emit errors as OpenTelemetry ActivityEvents |
 
