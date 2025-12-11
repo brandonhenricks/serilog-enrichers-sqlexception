@@ -1,4 +1,4 @@
-namespace Serilog.Enrichers.SqlException.Helpers;
+﻿namespace Serilog.Enrichers.SqlException.Helpers;
 
 /// <summary>
 /// Provides retry guidance for SQL Server errors based on error characteristics.
@@ -15,7 +15,7 @@ internal static class RetryAdvisor
         [40613] = new(true, "Exponential", "1s", 3, "Azure database unavailable - temporary issue"),
         [49918] = new(true, "Exponential", "2s", 2, "Insufficient resources - retry with backoff"),
         [49920] = new(true, "Exponential", "2s", 2, "Too many operations - retry with backoff"),
-        
+
         // Connection issues - retry with linear backoff
         [-1] = new(true, "Linear", "5s", 2, "Connection timeout - network issue, retry with delay"),
         [4060] = new(true, "Linear", "3s", 2, "Cannot open database - may be starting up"),
@@ -25,11 +25,11 @@ internal static class RetryAdvisor
         [10061] = new(true, "Linear", "3s", 2, "Connection refused - service may be restarting"),
         [40143] = new(true, "Linear", "3s", 2, "Connection initialization failed - retry"),
         [40540] = new(true, "Linear", "5s", 2, "Azure service error - temporary unavailability"),
-        
+
         // Command timeouts - retry once with caution
         [-2] = new(true, "Linear", "10s", 1, "Command timeout - optimize query or increase timeout, then retry"),
         [8645] = new(true, "Linear", "5s", 1, "Memory timeout - retry once after delay"),
-        
+
         // User errors - do not retry
         [102] = new(false, "None", "0ms", 0, "Syntax error - fix SQL statement"),
         [156] = new(false, "None", "0ms", 0, "Syntax error near keyword - fix SQL"),
@@ -45,7 +45,7 @@ internal static class RetryAdvisor
         [2601] = new(false, "None", "0ms", 0, "Duplicate key in unique index - check data uniqueness"),
         [2627] = new(false, "None", "0ms", 0, "Primary key violation - check for duplicate values"),
         [8152] = new(false, "None", "0ms", 0, "String truncation - reduce data length or increase column size"),
-        
+
         // System errors - do not retry
         [823] = new(false, "None", "0ms", 0, "I/O error - investigate storage subsystem"),
         [824] = new(false, "None", "0ms", 0, "Consistency error - run DBCC CHECKDB"),

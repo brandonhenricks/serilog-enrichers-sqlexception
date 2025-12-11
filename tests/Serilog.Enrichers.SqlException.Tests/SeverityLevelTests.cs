@@ -1,6 +1,5 @@
-using Serilog.Enrichers.SqlException.Configurations;
+﻿using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Enrichers.SqlException.Enrichers;
-using Xunit;
 
 namespace Serilog.Enrichers.SqlException.Tests;
 

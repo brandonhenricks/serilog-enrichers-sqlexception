@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
@@ -15,34 +14,6 @@ namespace Serilog.Enrichers.SqlException.Enrichers;
 public class SqlExceptionEnricher : ILogEventEnricher
 {
     private readonly SqlExceptionEnricherOptions _options;
-
-    // Transient error numbers based on Microsoft's recommended retry logic
-    // https://learn.microsoft.com/en-us/azure/azure-sql/database/troubleshoot-common-errors-issues
-    private static readonly HashSet<int> s_transientErrorNumbers = new HashSet<int>
-    {
-        -2,     // Timeout
-        -1,     // Connection timeout
-        40197,  // Service error processing request
-        40501,  // Service is busy
-        40613,  // Database unavailable
-        49918,  // Cannot process request. Not enough resources
-        49919,  // Cannot process create or update request
-        49920,  // Cannot process request. Too many operations in progress
-        4060,   // Cannot open database
-        40143,  // Connection could not be initialized
-        40540,  // Service has encountered an error
-        10053,  // Transport-level error
-        10054,  // Transport-level error (connection reset by peer)
-        10060,  // Network or instance-specific error
-        10061,  // Network or instance-specific error
-        40544,  // Database has reached its size quota
-        40549,  // Session terminated (long transaction)
-        40550,  // Session terminated (excessive lock acquisition)
-        40551,  // Session terminated (excessive TEMPDB usage)
-        40552,  // Session terminated (excessive transaction log space)
-        40553,  // Session terminated (excessive memory usage)
-        1205    // Deadlock victim (often transient)
-    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SqlExceptionEnricher"/> class with default options.
@@ -118,12 +89,15 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithConnectionContext(logEvent, propertyFactory, sqlException);
         }
 
-        // Detect transient failures if enabled
+        // Detect transient failures if enabled (legacy - use ProvideRetryGuidance for comprehensive info)
+#pragma warning disable CS0618 // Type or member is obsolete
         if (_options.DetectTransientFailures)
         {
-            var isTransient = s_transientErrorNumbers.Contains(firstError.Number);
+            // Delegate to RetryAdvisor - single source of truth for retry logic
+            var isTransient = RetryAdvisor.ShouldRetry(firstError.Number);
             AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
         }
+#pragma warning restore CS0618 // Type or member is obsolete
 
         // Detect deadlocks if enabled
         if (_options.DetectDeadlocks)
@@ -286,7 +260,7 @@ public class SqlExceptionEnricher : ILogEventEnricher
         AddProperty(logEvent, propertyFactory, "RetryStrategy", RetryAdvisor.GetRetryStrategy(error.Number));
         AddProperty(logEvent, propertyFactory, "SuggestedRetryDelay", RetryAdvisor.GetSuggestedDelay(error.Number));
         AddProperty(logEvent, propertyFactory, "MaxRetries", RetryAdvisor.GetMaxRetries(error.Number));
-        
+
         var reason = RetryAdvisor.GetRetryReason(error.Number);
         if (!string.IsNullOrWhiteSpace(reason))
         {
@@ -303,16 +277,19 @@ public class SqlExceptionEnricher : ILogEventEnricher
     {
         var severityLevel = error.Class switch
         {
-            <= 10 => SqlSeverityLevel.Informational,
-            <= 13 => SqlSeverityLevel.Warning,
-            <= 16 => SqlSeverityLevel.Error,
-            <= 19 => SqlSeverityLevel.Severe,
-            <= 24 => SqlSeverityLevel.Critical,
+            <= SqlExceptionConstants.SeverityThresholds.Informational => SqlSeverityLevel.Informational,
+            <= SqlExceptionConstants.SeverityThresholds.Warning => SqlSeverityLevel.Warning,
+            <= SqlExceptionConstants.SeverityThresholds.Error => SqlSeverityLevel.Error,
+            <= SqlExceptionConstants.SeverityThresholds.Severe => SqlSeverityLevel.Severe,
+            <= SqlExceptionConstants.SeverityThresholds.Critical => SqlSeverityLevel.Critical,
             _ => SqlSeverityLevel.Fatal
         };
 
         AddProperty(logEvent, propertyFactory, "SeverityLevel", severityLevel.ToString());
-        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention", error.Class >= 20);
+        
+        // Class 20+ indicates severe system problems requiring immediate attention
+        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention", 
+            error.Class >= SqlExceptionConstants.SeverityThresholds.ImmediateAttentionRequired);
     }
 
     private void EmitOpenTelemetryEvent(Microsoft.Data.SqlClient.SqlException sqlException, SqlError firstError)
@@ -320,7 +297,7 @@ public class SqlExceptionEnricher : ILogEventEnricher
         if (_options.EmitActivityEvents)
         {
             OpenTelemetryHelper.EmitActivityEvent(sqlException, firstError);
-            
+
             if (_options.EnableDiagnostics)
             {
                 _options.DiagnosticLogger?.Invoke("ActivityEvent emitted for OpenTelemetry");

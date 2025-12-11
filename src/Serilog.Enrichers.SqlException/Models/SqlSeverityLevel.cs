@@ -1,4 +1,4 @@
-namespace Serilog.Enrichers.SqlException.Models;
+﻿namespace Serilog.Enrichers.SqlException.Models;
 
 /// <summary>
 /// Represents human-readable severity levels for SQL Server errors.

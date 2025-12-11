@@ -1,9 +1,6 @@
-using System.Reflection;
-using Microsoft.Data.SqlClient;
-using Serilog.Core;
+﻿using System.Reflection;
 using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Enrichers.SqlException.Enrichers;
-using Serilog.Events;
 using static Serilog.Enrichers.SqlException.Tests.TestHelpers;
 
 namespace Serilog.Enrichers.SqlException.Tests;

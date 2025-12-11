@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using Microsoft.Data.SqlClient;
 
 namespace Serilog.Enrichers.SqlException.Helpers;
 
@@ -8,8 +7,8 @@ namespace Serilog.Enrichers.SqlException.Helpers;
 /// </summary>
 internal static class OpenTelemetryHelper
 {
-    private const string ActivitySourceName = "Serilog.Enrichers.SqlException";
-    private static readonly ActivitySource s_activitySource = new(ActivitySourceName, "1.0.0");
+    private static readonly ActivitySource s_activitySource = 
+        new(SqlExceptionConstants.OpenTelemetry.ActivitySourceName, "1.0.0");
 
     /// <summary>
     /// Emits an OpenTelemetry ActivityEvent for a SQL exception.

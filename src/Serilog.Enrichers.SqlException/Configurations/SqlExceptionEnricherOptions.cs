@@ -23,6 +23,13 @@ public class SqlExceptionEnricherOptions
     /// that are typically retry-eligible.
     /// Default is <c>true</c>.
     /// </summary>
+    /// <remarks>
+    /// This property is obsolete. Use <see cref="ProvideRetryGuidance"/> instead,
+    /// which provides more comprehensive retry recommendations including strategy,
+    /// delay, and reasoning. The SqlException_IsTransient property will be set based
+    /// on SqlException_ShouldRetry when ProvideRetryGuidance is enabled.
+    /// </remarks>
+    [Obsolete("Use ProvideRetryGuidance instead for comprehensive retry recommendations. This property will be removed in a future version.")]
     public bool DetectTransientFailures { get; set; } = true;
 
     /// <summary>
