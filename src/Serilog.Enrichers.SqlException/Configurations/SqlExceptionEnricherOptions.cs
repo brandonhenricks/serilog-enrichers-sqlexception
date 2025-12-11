@@ -19,20 +19,6 @@ public class SqlExceptionEnricherOptions
     public bool IncludeConnectionContext { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to detect and flag transient failures
-    /// that are typically retry-eligible.
-    /// Default is <c>true</c>.
-    /// </summary>
-    /// <remarks>
-    /// This property is obsolete. Use <see cref="ProvideRetryGuidance"/> instead,
-    /// which provides more comprehensive retry recommendations including strategy,
-    /// delay, and reasoning. The SqlException_IsTransient property will be set based
-    /// on SqlException_ShouldRetry when ProvideRetryGuidance is enabled.
-    /// </remarks>
-    [Obsolete("Use ProvideRetryGuidance instead for comprehensive retry recommendations. This property will be removed in a future version.")]
-    public bool DetectTransientFailures { get; set; } = true;
-
-    /// <summary>
     /// Gets or sets the property name prefix for enriched properties.
     /// Default is <c>SqlException_</c>.
     /// </summary>
@@ -73,31 +59,11 @@ public class SqlExceptionEnricherOptions
     public bool UseOpenTelemetrySemantics { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to provide retry guidance properties
-    /// including retry strategy, delay, and reasoning.
-    /// Default is <c>false</c>.
-    /// </summary>
-    public bool ProvideRetryGuidance { get; set; } = false;
-
-    /// <summary>
     /// Gets or sets a value indicating whether to include human-readable severity levels
     /// in addition to SQL Server Class values.
     /// Default is <c>true</c>.
     /// </summary>
     public bool IncludeSeverityLevel { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to enable diagnostic logging.
-    /// When enabled, the enricher will call the DiagnosticLogger action with debug information.
-    /// Default is <c>false</c>.
-    /// </summary>
-    public bool EnableDiagnostics { get; set; } = false;
-
-    /// <summary>
-    /// Gets or sets an optional diagnostic logger action.
-    /// Called when EnableDiagnostics is true to provide troubleshooting information.
-    /// </summary>
-    public Action<string>? DiagnosticLogger { get; set; }
 
     /// <summary>
     /// Validates the configuration options for consistency.

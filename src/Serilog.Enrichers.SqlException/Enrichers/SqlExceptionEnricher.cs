@@ -31,11 +31,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _options.Validate();
-
-        if (_options.EnableDiagnostics)
-        {
-            _options.DiagnosticLogger?.Invoke("SqlExceptionEnricher initialized with configured options");
-        }
     }
 
     /// <summary>
@@ -54,16 +49,7 @@ public class SqlExceptionEnricher : ILogEventEnricher
 
         if (sqlException == null || sqlException.Errors.Count == 0)
         {
-            if (_options.EnableDiagnostics)
-            {
-                _options.DiagnosticLogger?.Invoke("No SqlException found in exception chain");
-            }
             return;
-        }
-
-        if (_options.EnableDiagnostics)
-        {
-            _options.DiagnosticLogger?.Invoke($"SqlException found with {sqlException.Errors.Count} error(s)");
         }
 
         // Add marker property
@@ -89,15 +75,9 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithConnectionContext(logEvent, propertyFactory, sqlException);
         }
 
-        // Detect transient failures if enabled (legacy - use ProvideRetryGuidance for comprehensive info)
-#pragma warning disable CS0618 // Type or member is obsolete
-        if (_options.DetectTransientFailures)
-        {
-            // Delegate to RetryAdvisor - single source of truth for retry logic
-            var isTransient = RetryAdvisor.ShouldRetry(firstError.Number);
-            AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
-        }
-#pragma warning restore CS0618 // Type or member is obsolete
+        // Always detect transient failures - this is descriptive, not prescriptive
+        var isTransient = RetryAdvisor.ShouldRetry(firstError.Number);
+        AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
 
         // Detect deadlocks if enabled
         if (_options.DetectDeadlocks)
@@ -117,21 +97,10 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithErrorCategorization(logEvent, propertyFactory, firstError);
         }
 
-        // Provide retry guidance if enabled
-        if (_options.ProvideRetryGuidance)
-        {
-            EnrichWithRetryGuidance(logEvent, propertyFactory, firstError);
-        }
-
         // Include severity level if enabled
         if (_options.IncludeSeverityLevel)
         {
             EnrichWithSeverityLevel(logEvent, propertyFactory, firstError);
-        }
-
-        if (_options.EnableDiagnostics)
-        {
-            _options.DiagnosticLogger?.Invoke($"Enrichment complete - {logEvent.Properties.Count} total properties");
         }
     }
 
@@ -240,26 +209,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
         var isUserError = SqlErrorCategorizer.IsUserError(error.Number);
         AddProperty(logEvent, propertyFactory, "IsUserError", isUserError);
         AddProperty(logEvent, propertyFactory, "IsSystemError", !isUserError);
-    }
-
-    private void EnrichWithRetryGuidance(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
-    {
-        var shouldRetry = RetryAdvisor.ShouldRetry(error.Number);
-        AddProperty(logEvent, propertyFactory, "ShouldRetry", shouldRetry);
-        AddProperty(logEvent, propertyFactory, "RetryStrategy", RetryAdvisor.GetRetryStrategy(error.Number));
-        AddProperty(logEvent, propertyFactory, "SuggestedRetryDelay", RetryAdvisor.GetSuggestedDelay(error.Number));
-        AddProperty(logEvent, propertyFactory, "MaxRetries", RetryAdvisor.GetMaxRetries(error.Number));
-
-        var reason = RetryAdvisor.GetRetryReason(error.Number);
-        if (!string.IsNullOrWhiteSpace(reason))
-        {
-            AddProperty(logEvent, propertyFactory, "RetryReason", reason);
-        }
-
-        if (_options.EnableDiagnostics)
-        {
-            _options.DiagnosticLogger?.Invoke($"Retry guidance: {(shouldRetry ? "Retry recommended" : "Do not retry")} - {reason}");
-        }
     }
 
     private void EnrichWithSeverityLevel(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)

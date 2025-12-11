@@ -61,40 +61,4 @@ public class ConfigurationValidationTests
         var enricher = new SqlExceptionEnricher(options);
         Assert.NotNull(enricher);
     }
-
-    [Fact]
-    public void DiagnosticLogger_InvokesDuringConstruction_WhenEnabled()
-    {
-        // Arrange
-        var logMessages = new System.Collections.Generic.List<string>();
-        var options = new SqlExceptionEnricherOptions
-        {
-            EnableDiagnostics = true,
-            DiagnosticLogger = msg => logMessages.Add(msg)
-        };
-
-        // Act
-        var enricher = new SqlExceptionEnricher(options);
-
-        // Assert
-        Assert.Contains(logMessages, m => m.Contains("initialized"));
-    }
-
-    [Fact]
-    public void DiagnosticLogger_DoesNotInvoke_WhenDisabled()
-    {
-        // Arrange
-        var logMessages = new System.Collections.Generic.List<string>();
-        var options = new SqlExceptionEnricherOptions
-        {
-            EnableDiagnostics = false,
-            DiagnosticLogger = msg => logMessages.Add(msg)
-        };
-
-        // Act
-        var enricher = new SqlExceptionEnricher(options);
-
-        // Assert
-        Assert.Empty(logMessages);
-    }
 }

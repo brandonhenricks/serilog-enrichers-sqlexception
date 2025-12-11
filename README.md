@@ -9,10 +9,10 @@ A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlC
 
 - **Automatic SqlException Detection**: Walks the exception chain to find `SqlException` instances, even when wrapped in other exception types
 - **Structured Logging**: Extracts key properties as separate log event properties for filtering and querying
+- **Transient Error Detection**: Identifies transient errors (deadlocks, timeouts, network issues) that typically warrant retry
 - **Deadlock Detection**: Automatically identifies deadlock errors (error number 1205)
 - **Timeout Classification**: Categorizes timeout errors by type (Command, Connection, Network)
 - **Error Categorization**: Classifies errors into logical categories (Connectivity, Syntax, Permission, Constraint, Resource, Corruption, Concurrency)
-- **Retry Guidance**: Automatic retry recommendations with strategy, delay, and max retry counts for 50+ error types
 - **Severity Levels**: Human-readable severity classification (Informational → Fatal) mapped from SQL Server Class values
 - **OpenTelemetry Integration**: Optional semantic convention property naming for distributed tracing compatibility
 - **Configuration Validation**: Prevents invalid option combinations at initialization time
@@ -66,15 +66,11 @@ var options = new SqlExceptionEnricherOptions
     PropertyPrefix = "Sql",                  // Default: "SqlException_"
     IncludeAllErrors = true,                 // Enrich all errors in collection
     IncludeConnectionContext = true,         // Add server/database info
-    DetectTransientFailures = true,          // Identify transient errors
     DetectDeadlocks = true,                  // Detect deadlock errors (1205)
     ClassifyTimeouts = true,                 // Classify timeout types
     CategorizeErrors = true,                 // Categorize by error type
-    ProvideRetryGuidance = true,             // Add retry recommendations
     IncludeSeverityLevel = true,             // Add human-readable severity
     UseOpenTelemetrySemantics = true,        // Use OTel property names
-    EnableDiagnostics = false,               // Enable diagnostic logging
-    DiagnosticLogger = msg => Debug.WriteLine(msg)
 };
 
 Log.Logger = new LoggerConfiguration()
@@ -134,11 +130,7 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `SqlException_IsTimeout` | `db.error.timeout` |
 | `SqlException_TimeoutType` | `db.error.timeout.type` |
 | `SqlException_IsDeadlock` | `db.error.deadlock` |
-| `SqlException_ShouldRetry` | `db.error.retry.recommended` |
-| `SqlException_RetryStrategy` | `db.error.retry.strategy` |
-| `SqlException_SuggestedRetryDelay` | `db.error.retry.delay` |
-| `SqlException_MaxRetries` | `db.error.retry.max_attempts` |
-| `SqlException_RetryReason` | `db.error.retry.reason` |
+| `SqlException_IsTransient` | `db.error.transient` |
 | `SqlException_SeverityLevel` | `db.error.severity.level` |
 | `SqlException_RequiresImmediateAttention` | `db.error.critical` |
 
@@ -165,13 +157,10 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "@mt": "Database operation failed",
   "@l": "Error",
   "SqlException_Number": 1205,
+  "SqlException_IsTransient": true,
   "SqlException_IsDeadlock": true,
   "SqlException_ErrorCategory": "Resource",
   "SqlException_IsUserError": false,
-  "SqlException_ShouldRetry": true,
-  "SqlException_RetryStrategy": "Exponential",
-  "SqlException_SuggestedRetryDelay": "00:00:01",
-  "SqlException_MaxRetries": 3,
   "SqlException_SeverityLevel": "Critical"
 }
 ```
@@ -187,10 +176,9 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "db.error.severity": 20,
   "db.operation": "sp_UpdateInventory",
   "server.address": "sql-prod-01",
+  "db.error.transient": true,
   "db.error.deadlock": true,
-  "db.error.category": "Resource",
-  "db.error.retry.recommended": true,
-  "db.error.retry.strategy": "Exponential"
+  "db.error.category": "Resource"
 }
 ```
 
@@ -201,15 +189,11 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `PropertyPrefix` | `string` | `"SqlException_"` | Prefix for all enriched properties |
 | `IncludeAllErrors` | `bool` | `true` | Include all errors in Errors collection (not just first) |
 | `IncludeConnectionContext` | `bool` | `true` | Include server and database connection info |
-| `DetectTransientFailures` | `bool` | `true` | Identify transient errors suitable for retry |
 | `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
 | `ClassifyTimeouts` | `bool` | `true` | Classify timeout errors by type |
 | `CategorizeErrors` | `bool` | `true` | Add error category and user error properties |
-| `ProvideRetryGuidance` | `bool` | `true` | Add retry recommendation properties |
 | `IncludeSeverityLevel` | `bool` | `true` | Add human-readable severity level classification |
 | `UseOpenTelemetrySemantics` | `bool` | `false` | Use OTel semantic convention property names |
-| `EnableDiagnostics` | `bool` | `false` | Enable diagnostic logging for troubleshooting |
-| `DiagnosticLogger` | `Action<string>` | `null` | Custom diagnostic log output handler |
 
 ## How It Works
 
@@ -218,10 +202,10 @@ The enricher implements `ILogEventEnricher` and performs the following operation
 1. **Exception Chain Traversal**: Walks through `InnerException` references to locate `SqlException` instances
 2. **Circular Reference Protection**: Uses a `HashSet<Exception>` to detect and break circular chains
 3. **Property Extraction**: Extracts properties from `SqlError` instances in the `SqlException.Errors` collection
-4. **Deadlock Detection**: Identifies error 1205 and flags it as a deadlock
-5. **Timeout Classification**: Maps error numbers to timeout types (Command: -2, Connection: -1, Network: 10060/10061)
-6. **Error Categorization**: Maps 50+ error numbers to logical categories and user/system classification
-7. **Retry Guidance**: Analyzes error types to provide retry recommendations with strategy and timing
+4. **Transient Error Detection**: Identifies transient errors based on error number (deadlocks, timeouts, network issues)
+5. **Deadlock Detection**: Identifies error 1205 and flags it as a deadlock
+6. **Timeout Classification**: Maps error numbers to timeout types (Command: -2, Connection: -1, Network: 10060/10061)
+7. **Error Categorization**: Maps 50+ error numbers to logical categories and user/system classification
 8. **Severity Mapping**: Converts SQL Server Class values (1-25) to human-readable severity levels
 9. **OpenTelemetry Integration**: Optionally translates properties to OTel semantic conventions
 10. **Safe Property Addition**: Uses `AddPropertyIfAbsent()` to avoid overwriting existing properties
@@ -249,28 +233,29 @@ Log.Logger = new LoggerConfiguration()
 // Enable SQL Server trace flags 1204 or 1222 to write graphs to the error log.
 ```
 
-### Retry Logic with Guidance
+### Transient Error Detection
 
 ```csharp
-var options = new SqlExceptionEnricherOptions
-{
-    ProvideRetryGuidance = true
-};
+Log.Logger = new LoggerConfiguration()
+    .Enrich.WithSqlExceptionEnricher()
+    .WriteTo.Console()
+    .CreateLogger();
 
-// Implement retry based on guidance
-if (logEvent.Properties.TryGetValue("SqlException_ShouldRetry", out var shouldRetry) && 
-    shouldRetry.ToString() == "True")
+try
 {
-    var strategy = logEvent.Properties["SqlException_RetryStrategy"].ToString();
-    var maxRetries = int.Parse(logEvent.Properties["SqlException_MaxRetries"].ToString());
+    await ExecuteDatabaseOperation();
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Database operation failed");
     
-    await Policy
-        .Handle<SqlException>()
-        .WaitAndRetryAsync(maxRetries, retryAttempt => 
-            strategy == "Exponential" 
-                ? TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))
-                : TimeSpan.FromSeconds(retryAttempt))
-        .ExecuteAsync(() => yourDatabaseOperation());
+    // IsTransient is always included - check if retry should be attempted
+    if (logEvent.Properties.TryGetValue("SqlException_IsTransient", out var isTransient) && 
+        isTransient.ToString() == "True")
+    {
+        // Implement your own retry strategy based on your requirements
+        Log.Information("Transient error detected - consider retrying operation");
+    }
 }
 ```
 
