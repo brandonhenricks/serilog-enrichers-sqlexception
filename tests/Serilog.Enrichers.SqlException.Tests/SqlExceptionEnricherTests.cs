@@ -4,6 +4,7 @@ using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Enrichers.SqlException.Enrichers;
 using Serilog.Events;
+using static Serilog.Enrichers.SqlException.Tests.TestHelpers;
 
 namespace Serilog.Enrichers.SqlException.Tests;
 
@@ -90,16 +91,6 @@ public class SqlExceptionEnricherTests
         Assert.Contains(logEvent.Properties, p => p.Key == "SqlException_IsSqlException" && p.Value.ToString() == "True");
         Assert.Contains(logEvent.Properties, p => p.Key == "SqlException_Number" && p.Value.ToString() == "547");
         Assert.DoesNotContain(logEvent.Properties, p => p.Key == "SqlException_Procedure");
-    }
-
-    private static LogEvent CreateLogEvent(Exception? ex)
-    {
-        return new LogEvent(
-            DateTimeOffset.Now,
-            LogEventLevel.Error,
-            ex,
-            new MessageTemplate("test", []),
-            new List<LogEventProperty>()); // IDE0300: No simplification needed here, already using collection initializer.
     }
 
     private static Microsoft.Data.SqlClient.SqlException CreateSqlException(int number, byte state, byte errorClass, string procedure, int line)
@@ -614,17 +605,6 @@ public class SqlExceptionEnricherTests
         {
             var propertyValue = new ScalarValue(value);
             _properties[name] = propertyValue;
-            return new LogEventProperty(name, propertyValue);
-        }
-    }
-
-    private class SimplePropertyFactory : ILogEventPropertyFactory
-    {
-        public LogEventProperty CreateProperty(string name, object? value, bool destructureObjects = false)
-        {
-            // For test purposes, we just wrap values in ScalarValue
-            // In production, Serilog's property factory handles complex destructuring
-            var propertyValue = new ScalarValue(value);
             return new LogEventProperty(name, propertyValue);
         }
     }
