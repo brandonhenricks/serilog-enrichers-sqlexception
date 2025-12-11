@@ -417,7 +417,7 @@ Log.Logger = new LoggerConfiguration()
 // - db.error.code (instead of SqlException_Number)
 // - db.error.severity (instead of SqlException_Class)
 // - server.address (instead of SqlException_Server)
-// - db.operation.name (instead of SqlException_Procedure)
+// - db.operation (instead of SqlException_Procedure)
 ```
 
 ### Combining with Other Enrichers
