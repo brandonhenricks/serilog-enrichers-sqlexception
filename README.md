@@ -133,13 +133,13 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `SqlException_Number` | `db.error.code` |
 | `SqlException_State` | `db.error.state` |
 | `SqlException_Class` | `db.error.severity` |
-| `SqlException_Message` | `db.error.message` |
-| `SqlException_Procedure` | `db.operation.name` |
+| `SqlException_Message` | `exception.message` |
+| `SqlException_Procedure` | `db.operation` |
 | `SqlException_Server` | `server.address` |
 | `SqlException_ErrorCategory` | `db.error.category` |
-| `SqlException_IsTimeout` | `db.error.is_timeout` |
-| `SqlException_TimeoutType` | `db.error.timeout_type` |
-| `SqlException_IsDeadlock` | `db.error.is_deadlock` |
+| `SqlException_IsTimeout` | `db.error.timeout` |
+| `SqlException_TimeoutType` | `db.error.timeout.type` |
+| `SqlException_IsDeadlock` | `db.error.deadlock` |
 
 ### Example Log Output
 
