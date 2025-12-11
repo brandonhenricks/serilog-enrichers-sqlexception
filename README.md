@@ -194,7 +194,7 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "db.error.severity": 20,
   "db.operation": "sp_UpdateInventory",
   "server.address": "sql-prod-01",
-  "db.error.is_deadlock": true,
+  "db.error.deadlock": true,
   "db.error.category": "Resource",
   "error.type": "Microsoft.Data.SqlClient.SqlException"
 }
