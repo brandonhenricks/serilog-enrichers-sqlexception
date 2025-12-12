@@ -283,7 +283,7 @@ SqlException_IsDeadlock = true
 SqlException_Procedure = 'sp_UpdateInventory'
 
 -- Find retryable errors
-SqlException_ShouldRetry = true
+SqlException_IsTransient = true
 
 -- Find critical/fatal errors
 SqlException_SeverityLevel in ('Critical', 'Fatal')
