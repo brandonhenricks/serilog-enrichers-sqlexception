@@ -91,6 +91,7 @@ Log.Logger = new LoggerConfiguration()
 | `SqlException_State` | `byte` | Error state | Yes |
 | `SqlException_Class` | `byte` | Severity/class level (1-25) | Yes |
 | `SqlException_Line` | `int` | Line number where error occurred | Yes |
+| `SqlException_IsTransient` | `bool` | True if error is potentially transient (retriable) | Yes |
 | `SqlException_Procedure` | `string` | Stored procedure name | Conditional* |
 | `SqlException_Server` | `string` | Server name | Conditional* |
 | `SqlException_Message` | `string` | Error message | Conditional* |
@@ -141,7 +142,8 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "SqlException_State": 13,
   "SqlException_Class": 20,
   "SqlException_Procedure": "sp_UpdateInventory",
-  "SqlException_Line": 42
+  "SqlException_Line": 42,
+  "SqlException_IsTransient": true
 }
 ```
 
