@@ -71,11 +71,10 @@ public class SqlExceptionEnricherOptions
     /// <exception cref="ArgumentException">Thrown when <see cref="PropertyPrefix"/> is null or whitespace.</exception>
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(PropertyPrefix))
+        if (string.IsNullOrEmpty(PropertyPrefix))
         {
             throw new ArgumentException(
-                "PropertyPrefix cannot be null or whitespace. " +
-                "Use empty string for no prefix or provide a valid prefix.",
+                "PropertyPrefix cannot be null. Use empty string for no prefix or provide a valid prefix.",
                 nameof(PropertyPrefix));
         }
     }
