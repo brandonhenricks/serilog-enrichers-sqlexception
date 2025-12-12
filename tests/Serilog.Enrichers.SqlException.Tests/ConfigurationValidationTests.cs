@@ -6,12 +6,26 @@ namespace Serilog.Enrichers.SqlException.Tests;
 public class ConfigurationValidationTests
 {
     [Fact]
-    public void Constructor_ThrowsException_WhenPropertyPrefixIsEmpty()
+    public void Constructor_Succeeds_WhenPropertyPrefixIsEmpty()
     {
         // Arrange
         var options = new SqlExceptionEnricherOptions
         {
             PropertyPrefix = ""
+        };
+
+        // Act & Assert - empty string is allowed for no prefix
+        var enricher = new SqlExceptionEnricher(options);
+        Assert.NotNull(enricher);
+    }
+
+    [Fact]
+    public void Constructor_ThrowsException_WhenPropertyPrefixIsNull()
+    {
+        // Arrange
+        var options = new SqlExceptionEnricherOptions
+        {
+            PropertyPrefix = null!
         };
 
         // Act & Assert
