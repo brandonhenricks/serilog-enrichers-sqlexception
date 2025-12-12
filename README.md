@@ -107,6 +107,7 @@ Log.Logger = new LoggerConfiguration()
 | `SqlException_TimeoutType` | `string` | Command/Connection/Network/Unknown | `ClassifyTimeouts` |
 | `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors` |
 | `SqlException_IsUserError` | `bool` | True if user-caused (syntax, constraint violations, etc.) | `CategorizeErrors` |
+| `SqlException_IsSystemError` | `bool` | True if error is a system error (not user-caused) | `CategorizeErrors` |
 | `SqlException_SeverityLevel` | `string` | Informational/Warning/Error/Severe/Critical/Fatal | `IncludeSeverityLevel` |
 | `SqlException_RequiresImmediateAttention` | `bool` | True for Class ≥ 20 (severe system errors) | `IncludeSeverityLevel` |
 
