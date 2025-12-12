@@ -1,9 +1,6 @@
-using System.Reflection;
-using Microsoft.Data.SqlClient;
-using Serilog.Core;
+﻿using System.Reflection;
 using Serilog.Enrichers.SqlException.Configurations;
 using Serilog.Enrichers.SqlException.Enrichers;
-using Serilog.Events;
 using static Serilog.Enrichers.SqlException.Tests.TestHelpers;
 
 namespace Serilog.Enrichers.SqlException.Tests;
@@ -57,56 +54,7 @@ public class DeadlockDetectionTests
     }
 
     [Fact]
-    public void Enrich_ExtractsDeadlockGraph_WhenPresent()
-    {
-        // Arrange
-        var enricher = new SqlExceptionEnricher();
-        var deadlockMessage = "Transaction was deadlocked. <deadlock-list><deadlock victim=\"process123\"><resource-list><exchangeEvent/></resource-list></deadlock></deadlock-list>";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        Assert.Contains(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph" && p.Value.ToString().Contains("deadlock-list"));
-    }
-
-    [Fact]
-    public void Enrich_DoesNotAddDeadlockGraph_WhenDisabled()
-    {
-        // Arrange
-        var options = new SqlExceptionEnricherOptions { IncludeDeadlockGraph = false };
-        var enricher = new SqlExceptionEnricher(options);
-        var deadlockMessage = "Transaction was deadlocked. <deadlock-list><deadlock victim=\"process123\"></deadlock></deadlock-list>";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        Assert.DoesNotContain(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph");
-    }
-
-    [Fact]
-    public void Enrich_DoesNotAddDeadlockGraph_WhenNotInMessage()
+    public void Enrich_DoesNotAddDeadlockGraph_BecauseNotAvailableInException()
     {
         // Arrange
         var enricher = new SqlExceptionEnricher();
@@ -115,7 +63,7 @@ public class DeadlockDetectionTests
             state: 13,
             errorClass: 13,
             server: "TestServer",
-            errorMessage: "Transaction was deadlocked on lock resources",
+            errorMessage: "Transaction was deadlocked on lock resources with another process and has been chosen as the deadlock victim. Rerun the transaction.",
             procedure: "",
             lineNumber: 0);
 
@@ -125,108 +73,8 @@ public class DeadlockDetectionTests
         enricher.Enrich(logEvent, new SimplePropertyFactory());
 
         // Assert
-        Assert.DoesNotContain(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph");
-    }
-
-    [Fact]
-    public void Enrich_ExtractsDeadlockGraph_WithAttributes()
-    {
-        // Arrange
-        var enricher = new SqlExceptionEnricher();
-        var deadlockMessage = "Transaction was deadlocked. <deadlock-list id=\"123\" xmlns=\"http://example.com\"><deadlock victim=\"process123\"><resource-list><exchangeEvent/></resource-list></deadlock></deadlock-list>";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        Assert.Contains(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph" && p.Value.ToString().Contains("deadlock-list"));
-        var graphProperty = logEvent.Properties.First(p => p.Key == "SqlException_DeadlockGraph");
-        // The value is stored as a ScalarValue, so check for the attribute in the string representation
-        Assert.Contains("id=", graphProperty.Value.ToString());
-        Assert.Contains("123", graphProperty.Value.ToString());
-    }
-
-    [Fact]
-    public void Enrich_DoesNotExtractDeadlockGraph_WhenMalformed()
-    {
-        // Arrange
-        var enricher = new SqlExceptionEnricher();
-        var deadlockMessage = "Transaction was deadlocked. <deadlock-list><deadlock victim=\"process123\"><resource-list><exchangeEvent></resource-list></deadlock></deadlock-list>";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        // Should not extract because exchangeEvent tag is not self-closing and doesn't have a closing tag
-        Assert.DoesNotContain(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph");
-    }
-
-    [Fact]
-    public void Enrich_ExtractsDeadlockGraph_WithNamespace()
-    {
-        // Arrange
-        var enricher = new SqlExceptionEnricher();
-        var deadlockMessage = "Deadlock detected. <deadlock-list xmlns=\"http://schemas.microsoft.com/sqlserver/2004/07/showplan\"><deadlock victim=\"process123\"></deadlock></deadlock-list>";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        Assert.Contains(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph" && p.Value.ToString().Contains("xmlns"));
-    }
-
-    [Fact]
-    public void Enrich_DoesNotExtractDeadlockGraph_WhenUnclosedTag()
-    {
-        // Arrange
-        var enricher = new SqlExceptionEnricher();
-        var deadlockMessage = "Transaction was deadlocked. <deadlock-list><deadlock victim=\"process123\">";
-        var sqlException = CreateSqlException(
-            number: 1205,
-            state: 13,
-            errorClass: 13,
-            server: "TestServer",
-            errorMessage: deadlockMessage,
-            procedure: "",
-            lineNumber: 0);
-
-        var logEvent = CreateLogEvent(sqlException);
-
-        // Act
-        enricher.Enrich(logEvent, new SimplePropertyFactory());
-
-        // Assert
-        // Should not extract because the XML is incomplete
+        // Deadlock graphs are not included in SqlException messages
+        // They are only available in SQL Server error log when trace flags 1204/1222 are enabled
         Assert.DoesNotContain(logEvent.Properties, p => p.Key == "SqlException_DeadlockGraph");
     }
 

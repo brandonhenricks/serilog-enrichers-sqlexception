@@ -19,13 +19,6 @@ public class SqlExceptionEnricherOptions
     public bool IncludeConnectionContext { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to detect and flag transient failures
-    /// that are typically retry-eligible.
-    /// Default is <c>true</c>.
-    /// </summary>
-    public bool DetectTransientFailures { get; set; } = true;
-
-    /// <summary>
     /// Gets or sets the property name prefix for enriched properties.
     /// Default is <c>SqlException_</c>.
     /// </summary>
@@ -33,17 +26,15 @@ public class SqlExceptionEnricherOptions
 
     /// <summary>
     /// Gets or sets a value indicating whether to detect and flag deadlock errors specifically.
-    /// When enabled, adds SqlException_IsDeadlock property and attempts to extract deadlock graph.
+    /// When enabled, adds SqlException_IsDeadlock property for error number 1205.
     /// Default is <c>true</c>.
     /// </summary>
+    /// <remarks>
+    /// Note: Deadlock graphs are not included in SqlException error messages by default.
+    /// SQL Server writes deadlock graphs to the error log when trace flags 1204 or 1222 are enabled,
+    /// but these are not accessible through the SqlException object.
+    /// </remarks>
     public bool DetectDeadlocks { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to include the deadlock graph XML in enriched properties.
-    /// Only applies when DetectDeadlocks is true and a deadlock graph is present in the error message.
-    /// Default is <c>true</c>.
-    /// </summary>
-    public bool IncludeDeadlockGraph { get; set; } = true;
 
     /// <summary>
     /// Gets or sets a value indicating whether to classify timeout errors by type
@@ -68,9 +59,23 @@ public class SqlExceptionEnricherOptions
     public bool UseOpenTelemetrySemantics { get; set; } = false;
 
     /// <summary>
-    /// Gets or sets a value indicating whether to emit OpenTelemetry ActivityEvents
-    /// for each SqlException encountered. Requires System.Diagnostics.DiagnosticSource.
-    /// Default is <c>false</c>.
+    /// Gets or sets a value indicating whether to include human-readable severity levels
+    /// in addition to SQL Server Class values.
+    /// Default is <c>true</c>.
     /// </summary>
-    public bool EmitActivityEvents { get; set; } = false;
+    public bool IncludeSeverityLevel { get; set; } = true;
+
+    /// <summary>
+    /// Validates the configuration options for consistency.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when <see cref="PropertyPrefix"/> is null or whitespace.</exception>
+    public void Validate()
+    {
+        if (PropertyPrefix == null || (PropertyPrefix.Length > 0 && string.IsNullOrWhiteSpace(PropertyPrefix)))
+        {
+            throw new ArgumentException(
+                "PropertyPrefix cannot be null or whitespace. Use empty string for no prefix or provide a valid prefix.",
+                nameof(PropertyPrefix));
+        }
+    }
 }

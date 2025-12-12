@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using Serilog.Core;
 using Serilog.Enrichers.SqlException.Configurations;
@@ -16,34 +15,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
 {
     private readonly SqlExceptionEnricherOptions _options;
 
-    // Transient error numbers based on Microsoft's recommended retry logic
-    // https://learn.microsoft.com/en-us/azure/azure-sql/database/troubleshoot-common-errors-issues
-    private static readonly HashSet<int> s_transientErrorNumbers = new HashSet<int>
-    {
-        -2,     // Timeout
-        -1,     // Connection timeout
-        40197,  // Service error processing request
-        40501,  // Service is busy
-        40613,  // Database unavailable
-        49918,  // Cannot process request. Not enough resources
-        49919,  // Cannot process create or update request
-        49920,  // Cannot process request. Too many operations in progress
-        4060,   // Cannot open database
-        40143,  // Connection could not be initialized
-        40540,  // Service has encountered an error
-        10053,  // Transport-level error
-        10054,  // Transport-level error (connection reset by peer)
-        10060,  // Network or instance-specific error
-        10061,  // Network or instance-specific error
-        40544,  // Database has reached its size quota
-        40549,  // Session terminated (long transaction)
-        40550,  // Session terminated (excessive lock acquisition)
-        40551,  // Session terminated (excessive TEMPDB usage)
-        40552,  // Session terminated (excessive transaction log space)
-        40553,  // Session terminated (excessive memory usage)
-        1205    // Deadlock victim (often transient)
-    };
-
     /// <summary>
     /// Initializes a new instance of the <see cref="SqlExceptionEnricher"/> class with default options.
     /// </summary>
@@ -59,6 +30,7 @@ public class SqlExceptionEnricher : ILogEventEnricher
     public SqlExceptionEnricher(SqlExceptionEnricherOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _options.Validate();
     }
 
     /// <summary>
@@ -103,12 +75,9 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithConnectionContext(logEvent, propertyFactory, sqlException);
         }
 
-        // Detect transient failures if enabled
-        if (_options.DetectTransientFailures)
-        {
-            var isTransient = s_transientErrorNumbers.Contains(firstError.Number);
-            AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
-        }
+        // Always detect transient failures - this is descriptive, not prescriptive
+        var isTransient = RetryAdvisor.ShouldRetry(firstError.Number);
+        AddProperty(logEvent, propertyFactory, "IsTransient", isTransient);
 
         // Detect deadlocks if enabled
         if (_options.DetectDeadlocks)
@@ -128,8 +97,11 @@ public class SqlExceptionEnricher : ILogEventEnricher
             EnrichWithErrorCategorization(logEvent, propertyFactory, firstError);
         }
 
-        // Emit OpenTelemetry events if enabled
-        EmitOpenTelemetryEvent(sqlException, firstError);
+        // Include severity level if enabled
+        if (_options.IncludeSeverityLevel)
+        {
+            EnrichWithSeverityLevel(logEvent, propertyFactory, firstError);
+        }
     }
 
     private void EnrichWithSqlError(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error, string suffix)
@@ -215,14 +187,6 @@ public class SqlExceptionEnricher : ILogEventEnricher
     {
         var isDeadlock = SqlErrorCategorizer.IsDeadlock(error.Number);
         AddProperty(logEvent, propertyFactory, "IsDeadlock", isDeadlock);
-
-        if (isDeadlock && _options.IncludeDeadlockGraph)
-        {
-            if (DeadlockGraphExtractor.TryExtractGraph(error.Message, out var graph))
-            {
-                AddProperty(logEvent, propertyFactory, "DeadlockGraph", graph!);
-            }
-        }
     }
 
     private void EnrichWithTimeoutClassification(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
@@ -247,12 +211,23 @@ public class SqlExceptionEnricher : ILogEventEnricher
         AddProperty(logEvent, propertyFactory, "IsSystemError", !isUserError);
     }
 
-    private void EmitOpenTelemetryEvent(Microsoft.Data.SqlClient.SqlException sqlException, SqlError firstError)
+    private void EnrichWithSeverityLevel(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, SqlError error)
     {
-        if (_options.EmitActivityEvents)
+        var severityLevel = error.Class switch
         {
-            OpenTelemetryHelper.EmitActivityEvent(sqlException, firstError);
-        }
+            <= SqlExceptionConstants.SeverityThresholds.Informational => SqlSeverityLevel.Informational,
+            <= SqlExceptionConstants.SeverityThresholds.Warning => SqlSeverityLevel.Warning,
+            <= SqlExceptionConstants.SeverityThresholds.Error => SqlSeverityLevel.Error,
+            <= SqlExceptionConstants.SeverityThresholds.Severe => SqlSeverityLevel.Severe,
+            <= SqlExceptionConstants.SeverityThresholds.Critical => SqlSeverityLevel.Critical,
+            _ => SqlSeverityLevel.Fatal
+        };
+
+        AddProperty(logEvent, propertyFactory, "SeverityLevel", severityLevel.ToString());
+
+        // Class 20+ indicates severe system problems requiring immediate attention
+        AddProperty(logEvent, propertyFactory, "RequiresImmediateAttention",
+            error.Class >= SqlExceptionConstants.SeverityThresholds.ImmediateAttentionRequired);
     }
 
     private void AddProperty(LogEvent logEvent, ILogEventPropertyFactory propertyFactory, string name, object value)

@@ -10,6 +10,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="Serilog.Enrichers.SqlException.Tests" />
+	</ItemGroup>
+
+	<ItemGroup>
 	  <Folder Include="Configurations\" />
 	</ItemGroup>
 

@@ -3,24 +3,21 @@
 [![NuGet](https://img.shields.io/nuget/v/Serilog.Enrichers.SqlException.svg)](https://www.nuget.org/packages/Serilog.Enrichers.SqlException/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlClient.SqlException` and adds them to log events. Enhance observability and troubleshooting for .NET applications using SQL Server by capturing detailed exception metadata such as error number, state, severity, procedure name, and line number.
+A Serilog enricher that extracts structured properties from `Microsoft.Data.SqlClient.SqlException` and adds them to log events. Enhance observability and troubleshooting for .NET applications using SQL Server by capturing detailed exception metadata.
 
 ## Features
 
-### Core Features
 - **Automatic SqlException Detection**: Walks the exception chain to find `SqlException` instances, even when wrapped in other exception types
 - **Structured Logging**: Extracts key properties as separate log event properties for filtering and querying
-- **Circular Reference Protection**: Safely handles circular exception chains
-- **Zero Configuration**: Works out of the box with a single fluent API call
-- **Broad Compatibility**: Targets .NET Standard 2.0 for wide framework support
-
-### Advanced Features (Phase 2)
-- **Deadlock Detection**: Automatically identifies deadlock errors (1205) and extracts XML deadlock graphs
+- **Transient Error Detection**: Identifies transient errors (deadlocks, timeouts, network issues) that typically warrant retry
+- **Deadlock Detection**: Automatically identifies deadlock errors (error number 1205)
 - **Timeout Classification**: Categorizes timeout errors by type (Command, Connection, Network)
 - **Error Categorization**: Classifies errors into logical categories (Connectivity, Syntax, Permission, Constraint, Resource, Corruption, Concurrency)
-- **User vs System Errors**: Distinguishes between user-caused errors and system issues
-- **OpenTelemetry Integration**: Optional semantic convention property naming for OTel compatibility
-- **Activity Event Emission**: Emit errors as OpenTelemetry ActivityEvents for distributed tracing
+- **Severity Levels**: Human-readable severity classification (Informational → Fatal) mapped from SQL Server Class values
+- **OpenTelemetry Integration**: Optional semantic convention property naming for distributed tracing compatibility
+- **Configuration Validation**: Prevents invalid option combinations at initialization time
+- **Zero Configuration**: Works out of the box with a single fluent API call
+- **Broad Compatibility**: Targets .NET Standard 2.0 for wide framework support
 
 ## Installation
 
@@ -39,8 +36,6 @@ dotnet add package Serilog.Enrichers.SqlException
 ## Quick Start
 
 ### Basic Usage
-
-Add the enricher to your Serilog configuration:
 
 ```csharp
 using Serilog;
@@ -62,27 +57,20 @@ catch (Exception ex)
 
 ### Advanced Configuration
 
-Enable Phase 2 features with custom options:
-
 ```csharp
 using Serilog;
 using Serilog.Enrichers.SqlException.Configurations;
 
 var options = new SqlExceptionEnricherOptions
 {
-    // Core options
-    PropertyPrefix = "Sql",              // Default: "SqlException_"
-    IncludeAllErrors = true,             // Enrich all errors in collection
-    IncludeConnectionContext = true,     // Add server/database info
-    DetectTransientFailures = true,      // Identify transient errors
-    
-    // Phase 2 options
-    DetectDeadlocks = true,              // Detect deadlock errors
-    IncludeDeadlockGraph = true,         // Extract XML deadlock graph
-    ClassifyTimeouts = true,             // Classify timeout types
-    CategorizeErrors = true,             // Categorize by error type
-    UseOpenTelemetrySemantics = true,    // Use OTel property names
-    EmitActivityEvents = true            // Emit as OTel ActivityEvents
+    PropertyPrefix = "Sql",                  // Default: "SqlException_"
+    IncludeAllErrors = true,                 // Enrich all errors in collection
+    IncludeConnectionContext = true,         // Add server/database info
+    DetectDeadlocks = true,                  // Detect deadlock errors (1205)
+    ClassifyTimeouts = true,                 // Classify timeout types
+    CategorizeErrors = true,                 // Categorize by error type
+    IncludeSeverityLevel = true,             // Add human-readable severity
+    UseOpenTelemetrySemantics = true,        // Use OTel property names
 };
 
 Log.Logger = new LoggerConfiguration()
@@ -96,8 +84,6 @@ Log.Logger = new LoggerConfiguration()
 
 ### Core Properties
 
-When a `SqlException` is detected, the following properties are added to the log event:
-
 | Property | Type | Description | Always Present |
 |----------|------|-------------|----------------|
 | `SqlException_IsSqlException` | `bool` | Indicates a SqlException was found | Yes |
@@ -105,24 +91,25 @@ When a `SqlException` is detected, the following properties are added to the log
 | `SqlException_State` | `byte` | Error state | Yes |
 | `SqlException_Class` | `byte` | Severity/class level (1-25) | Yes |
 | `SqlException_Line` | `int` | Line number where error occurred | Yes |
+| `SqlException_IsTransient` | `bool` | True if error is potentially transient (retriable) | Yes |
 | `SqlException_Procedure` | `string` | Stored procedure name | Conditional* |
 | `SqlException_Server` | `string` | Server name | Conditional* |
 | `SqlException_Message` | `string` | Error message | Conditional* |
 
 \* *Only included if non-empty*
 
-### Phase 2 Properties
-
-Additional properties when advanced features are enabled:
+### Extended Properties
 
 | Property | Type | Description | Required Option |
 |----------|------|-------------|-----------------|
-| `SqlException_IsDeadlock` | `bool` | True if error 1205 (deadlock) | `DetectDeadlocks = true` |
-| `SqlException_DeadlockGraph` | `string` | XML deadlock graph from message | `IncludeDeadlockGraph = true` |
-| `SqlException_IsTimeout` | `bool` | True if timeout error | `ClassifyTimeouts = true` |
-| `SqlException_TimeoutType` | `string` | Command/Connection/Network/Unknown | `ClassifyTimeouts = true` |
-| `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors = true` |
-| `SqlException_IsUserError` | `bool` | True if user-caused (syntax, constraint violations, etc.) | `CategorizeErrors = true` |
+| `SqlException_IsDeadlock` | `bool` | True if error 1205 (deadlock) | `DetectDeadlocks` |
+| `SqlException_IsTimeout` | `bool` | True if timeout error | `ClassifyTimeouts` |
+| `SqlException_TimeoutType` | `string` | Command/Connection/Network/Unknown | `ClassifyTimeouts` |
+| `SqlException_ErrorCategory` | `string` | Connectivity/Syntax/Permission/Constraint/Resource/Corruption/Concurrency/Unknown | `CategorizeErrors` |
+| `SqlException_IsUserError` | `bool` | True if user-caused (syntax, constraint violations, etc.) | `CategorizeErrors` |
+| `SqlException_IsSystemError` | `bool` | True if error is a system error (not user-caused) | `CategorizeErrors` |
+| `SqlException_SeverityLevel` | `string` | Informational/Warning/Error/Severe/Critical/Fatal | `IncludeSeverityLevel` |
+| `SqlException_RequiresImmediateAttention` | `bool` | True for Class ≥ 20 (severe system errors) | `IncludeSeverityLevel` |
 
 ### OpenTelemetry Semantic Conventions
 
@@ -140,50 +127,43 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
 | `SqlException_IsTimeout` | `db.error.timeout` |
 | `SqlException_TimeoutType` | `db.error.timeout.type` |
 | `SqlException_IsDeadlock` | `db.error.deadlock` |
+| `SqlException_IsTransient` | `db.error.transient` |
+| `SqlException_SeverityLevel` | `db.error.severity.level` |
+| `SqlException_RequiresImmediateAttention` | `db.error.critical` |
 
 ### Example Log Output
 
-#### Basic Output
+**Basic Output:**
 ```json
 {
   "@t": "2024-12-09T10:30:15.1234567Z",
   "@mt": "Database operation failed",
   "@l": "Error",
-  "@x": "Microsoft.Data.SqlClient.SqlException...",
-  "SqlException_IsSqlException": true,
   "SqlException_Number": 1205,
   "SqlException_State": 13,
   "SqlException_Class": 20,
   "SqlException_Procedure": "sp_UpdateInventory",
   "SqlException_Line": 42,
-  "SqlException_Server": "sql-prod-01",
-  "SqlException_Message": "Transaction was deadlocked on lock resources with another process"
+  "SqlException_IsTransient": true
 }
 ```
 
-#### With Phase 2 Features
+**With Advanced Features:**
 ```json
 {
   "@t": "2024-12-09T10:30:15.1234567Z",
   "@mt": "Database operation failed",
   "@l": "Error",
-  "@x": "Microsoft.Data.SqlClient.SqlException...",
-  "SqlException_IsSqlException": true,
   "SqlException_Number": 1205,
-  "SqlException_State": 13,
-  "SqlException_Class": 20,
-  "SqlException_Procedure": "sp_UpdateInventory",
-  "SqlException_Line": 42,
-  "SqlException_Server": "sql-prod-01",
-  "SqlException_Message": "Transaction was deadlocked...",
+  "SqlException_IsTransient": true,
   "SqlException_IsDeadlock": true,
-  "SqlException_DeadlockGraph": "<deadlock-list>...</deadlock-list>",
   "SqlException_ErrorCategory": "Resource",
-  "SqlException_IsUserError": false
+  "SqlException_IsUserError": false,
+  "SqlException_SeverityLevel": "Critical"
 }
 ```
 
-#### With OpenTelemetry Semantics
+**With OpenTelemetry Semantics:**
 ```json
 {
   "@t": "2024-12-09T10:30:15.1234567Z",
@@ -194,129 +174,50 @@ When `UseOpenTelemetrySemantics = true`, properties use OTel naming:
   "db.error.severity": 20,
   "db.operation": "sp_UpdateInventory",
   "server.address": "sql-prod-01",
+  "db.error.transient": true,
   "db.error.deadlock": true,
-  "db.error.category": "Resource",
-  "error.type": "Microsoft.Data.SqlClient.SqlException"
+  "db.error.category": "Resource"
 }
 ```
 
 ## Configuration Options
-
-The enricher can be customized via `SqlExceptionEnricherOptions`:
-
-### Core Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `PropertyPrefix` | `string` | `"SqlException_"` | Prefix for all enriched properties |
 | `IncludeAllErrors` | `bool` | `true` | Include all errors in Errors collection (not just first) |
 | `IncludeConnectionContext` | `bool` | `true` | Include server and database connection info |
-| `DetectTransientFailures` | `bool` | `true` | Identify transient errors suitable for retry |
-
-### Phase 2 Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
 | `DetectDeadlocks` | `bool` | `true` | Add `IsDeadlock` property for error 1205 |
-| `IncludeDeadlockGraph` | `bool` | `true` | Extract XML deadlock graph from error message |
-| `ClassifyTimeouts` | `bool` | `true` | Add timeout classification properties |
+| `ClassifyTimeouts` | `bool` | `true` | Classify timeout errors by type |
 | `CategorizeErrors` | `bool` | `true` | Add error category and user error properties |
+| `IncludeSeverityLevel` | `bool` | `true` | Add human-readable severity level classification |
 | `UseOpenTelemetrySemantics` | `bool` | `false` | Use OTel semantic convention property names |
-| `EmitActivityEvents` | `bool` | `false` | Emit errors as OpenTelemetry ActivityEvents |
-
-### Example: Full Configuration
-
-```csharp
-var options = new SqlExceptionEnricherOptions
-{
-    // Core options
-    PropertyPrefix = "Db",                   // Properties like "Db_Number" instead of "SqlException_Number"
-    IncludeAllErrors = true,                 // Include all errors, not just first
-    IncludeConnectionContext = true,         // Add server/database info
-    DetectTransientFailures = true,          // Mark transient errors
-    
-    // Phase 2 options
-    DetectDeadlocks = true,                  // Detect deadlocks
-    IncludeDeadlockGraph = true,             // Extract deadlock XML
-    ClassifyTimeouts = true,                 // Classify timeout types
-    CategorizeErrors = true,                 // Categorize all errors
-    UseOpenTelemetrySemantics = false,       // Use custom prefix (not OTel names)
-    EmitActivityEvents = true                // Emit to OTel Activity
-};
-
-Log.Logger = new LoggerConfiguration()
-    .Enrich.WithSqlExceptionEnricher(options)
-    .CreateLogger();
-```
 
 ## How It Works
 
 The enricher implements `ILogEventEnricher` and performs the following operations:
 
-### Core Enrichment Process
-
 1. **Exception Chain Traversal**: Walks through `InnerException` references to locate `SqlException` instances
 2. **Circular Reference Protection**: Uses a `HashSet<Exception>` to detect and break circular chains
-3. **Property Extraction**: Extracts properties from the first `SqlError` in the `SqlException.Errors` collection
-4. **Conditional Enrichment**: Only adds properties if they contain meaningful values (non-null, non-empty)
-5. **Safe Property Addition**: Uses `AddPropertyIfAbsent()` to avoid overwriting existing properties
+3. **Property Extraction**: Extracts properties from `SqlError` instances in the `SqlException.Errors` collection
+4. **Transient Error Detection**: Identifies transient errors based on error number (deadlocks, timeouts, network issues)
+5. **Deadlock Detection**: Identifies error 1205 and flags it as a deadlock
+6. **Timeout Classification**: Maps error numbers to timeout types (Command: -2, Connection: -1, Network: 10060/10061)
+7. **Error Categorization**: Maps 50+ error numbers to logical categories and user/system classification
+8. **Severity Mapping**: Converts SQL Server Class values (1-25) to human-readable severity levels
+9. **OpenTelemetry Integration**: Optionally translates properties to OTel semantic conventions
+10. **Safe Property Addition**: Uses `AddPropertyIfAbsent()` to avoid overwriting existing properties
 
-### Phase 2 Enhanced Processing
+> **Note on Deadlock Graphs**: SQL Server does not include deadlock graph XML in the `SqlException` error message. Deadlock graphs are only available in the SQL Server error log when trace flags 1204 or 1222 are enabled. This enricher detects deadlock errors (1205) but cannot extract the graph data from the exception itself.
 
-When advanced features are enabled:
+## Usage Examples
 
-#### Deadlock Detection
-- Checks if error number is 1205
-- Extracts XML deadlock graph using regex pattern matching
-- Graph format: `<deadlock-list>...</deadlock-list>` or `<deadlock>...</deadlock>`
-- Useful for analyzing deadlock participants and resources
-
-#### Timeout Classification
-- Maps error numbers to timeout types:
-  - `-2` → Command timeout
-  - `-1` → Connection timeout  
-  - `10060`, `10061` → Network timeout
-- Enables filtering and alerting by timeout type
-
-#### Error Categorization
-- Maps 50+ error numbers to logical categories
-- Identifies user-caused vs system errors
-- Categories: Connectivity, Syntax, Permission, Constraint, Resource, Corruption, Concurrency, Unknown
-
-#### OpenTelemetry Integration
-- Translates 20+ properties to OTel semantic conventions
-- Optionally emits errors as `ActivityEvent` instances on current `Activity`
-- Supports distributed tracing and APM tools (Application Insights, Jaeger, Zipkin, etc.)
-
-### Architecture
-
-```
-LogEvent with SqlException
-    ↓
-SqlExceptionEnricher.Enrich()
-    ↓
-├─ Find SqlException in chain
-├─ Extract core properties (number, state, class, etc.)
-├─ [Optional] Detect deadlock + extract graph
-├─ [Optional] Classify timeout type
-├─ [Optional] Categorize error type
-├─ [Optional] Map to OTel semantic conventions
-└─ [Optional] Emit ActivityEvent
-    ↓
-Enriched LogEvent with structured properties
-```
-
-## Advanced Usage
-
-### Deadlock Detection and Analysis
-
-Automatically detect deadlocks and extract the XML deadlock graph for detailed analysis:
+### Deadlock Detection
 
 ```csharp
 var options = new SqlExceptionEnricherOptions
 {
-    DetectDeadlocks = true,
-    IncludeDeadlockGraph = true
+    DetectDeadlocks = true
 };
 
 Log.Logger = new LoggerConfiguration()
@@ -324,144 +225,50 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Seq("http://localhost:5341")
     .CreateLogger();
 
-// When a deadlock occurs, logs will include:
+// When a deadlock (error 1205) occurs, logs will include:
 // - SqlException_IsDeadlock: true
-// - SqlException_DeadlockGraph: "<deadlock-list>...</deadlock-list>"
+// Note: Deadlock graphs are not available in SqlException.
+// Enable SQL Server trace flags 1204 or 1222 to write graphs to the error log.
 ```
 
-Query deadlocks in Seq:
-```sql
-SqlException_IsDeadlock = true
-```
-
-### Timeout Classification
-
-Distinguish between different types of timeout errors:
+### Transient Error Detection
 
 ```csharp
-var options = new SqlExceptionEnricherOptions
-{
-    ClassifyTimeouts = true
-};
-
-// Timeout types detected:
-// - Command: Error -2 (CommandTimeout exceeded)
-// - Connection: Error -1 (ConnectionTimeout exceeded)  
-// - Network: Errors 10060, 10061 (Network timeouts)
-```
-
-Query timeout errors by type:
-```sql
--- All timeouts
-SqlException_IsTimeout = true
-
--- Only command timeouts
-SqlException_TimeoutType = 'Command'
-
--- Network-related timeouts
-SqlException_TimeoutType = 'Network'
-```
-
-### Error Categorization
-
-Automatically categorize errors for easier troubleshooting:
-
-```csharp
-var options = new SqlExceptionEnricherOptions
-{
-    CategorizeErrors = true
-};
-
-// Categories:
-// - Connectivity: Network/connection issues
-// - Syntax: SQL syntax errors
-// - Permission: Authorization failures
-// - Constraint: FK/PK/Unique violations
-// - Resource: Deadlocks, memory, disk space
-// - Corruption: Database corruption
-// - Concurrency: Snapshot isolation conflicts
-// - Unknown: Uncategorized errors
-```
-
-Query by category in Seq:
-```sql
--- All constraint violations
-SqlException_ErrorCategory = 'Constraint'
-
--- User-caused errors (syntax, constraints, permissions)
-SqlException_IsUserError = true
-
--- System issues only
-SqlException_IsUserError = false
-```
-
-### OpenTelemetry Integration
-
-Use OpenTelemetry semantic conventions for consistent observability:
-
-```csharp
-var options = new SqlExceptionEnricherOptions
-{
-    UseOpenTelemetrySemantics = true,
-    EmitActivityEvents = true  // Also emit as OTel ActivityEvents
-};
-
-Log.Logger = new LoggerConfiguration()
-    .Enrich.WithSqlExceptionEnricher(options)
-    .WriteTo.OpenTelemetry(opts => {
-        opts.Endpoint = "http://localhost:4317";
-    })
-    .CreateLogger();
-
-// Properties follow OTel conventions:
-// - db.error.code (instead of SqlException_Number)
-// - db.error.severity (instead of SqlException_Class)
-// - server.address (instead of SqlException_Server)
-// - db.operation (instead of SqlException_Procedure)
-```
-
-### Combining with Other Enrichers
-
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .Enrich.WithThreadId()
-    .Enrich.WithMachineName()
-    .Enrich.WithSqlExceptionEnricher(new SqlExceptionEnricherOptions
-    {
-        DetectDeadlocks = true,
-        ClassifyTimeouts = true,
-        CategorizeErrors = true
-    })
-    .Enrich.FromLogContext()
-    .WriteTo.Seq("http://localhost:5341")
-    .CreateLogger();
-```
-
-### Filtering by SQL Error Number
-
-```csharp
+// Route transient errors to a separate sink for retry handling
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithSqlExceptionEnricher()
     .WriteTo.Logger(lc => lc
-        .Filter.ByIncludingOnly(le => 
-            le.Properties.TryGetValue("SqlException_Number", out var number) &&
-            number.ToString() == "1205") // Deadlock errors only
-        .WriteTo.Seq("http://localhost:5341"))
+        .Filter.ByIncludingOnly(le =>
+            le.Properties.TryGetValue("SqlException_IsTransient", out var isTransient) &&
+            isTransient.ToString() == "True")
+        .WriteTo.File("logs/transient-errors.txt"))
+    .WriteTo.Console()
     .CreateLogger();
+
+try
+{
+    await ExecuteDatabaseOperation();
+}
+catch (Exception ex)
+{
+    // Transient errors are automatically logged to transient-errors.txt
+    // where your retry logic can monitor and process them
+    Log.Error(ex, "Database operation failed");
+}
 ```
 
-### Alerting on Critical Errors
+### Alert on Critical Errors
 
 ```csharp
 Log.Logger = new LoggerConfiguration()
     .Enrich.WithSqlExceptionEnricher(new SqlExceptionEnricherOptions
     {
-        CategorizeErrors = true
+        IncludeSeverityLevel = true
     })
     .WriteTo.Logger(lc => lc
         .Filter.ByIncludingOnly(le =>
-            le.Properties.TryGetValue("SqlException_ErrorCategory", out var category) &&
-            (category.ToString() == "\"Corruption\"" || category.ToString() == "\"Resource\""))
+            le.Properties.TryGetValue("SqlException_RequiresImmediateAttention", out var attention) &&
+            attention.ToString() == "True")
         .WriteTo.Email(
             fromEmail: "alerts@company.com",
             toEmail: "dba@company.com",
@@ -469,27 +276,26 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 ```
 
-### Querying Enriched Logs in Seq
+### Querying Logs in Seq
 
 ```sql
 -- Find all deadlock errors
-SqlException_Number = 1205
 SqlException_IsDeadlock = true
 
 -- Find errors in specific stored procedure
 SqlException_Procedure = 'sp_UpdateInventory'
 
--- Find high-severity errors (16+)
-SqlException_Class >= 16
+-- Find retryable errors
+SqlException_IsTransient = true
 
--- Find all timeout errors
-SqlException_IsTimeout = true
+-- Find critical/fatal errors
+SqlException_SeverityLevel in ('Critical', 'Fatal')
+
+-- Find user-caused errors
+SqlException_IsUserError = true
 
 -- Find constraint violations
 SqlException_ErrorCategory = 'Constraint'
-
--- Find user errors vs system errors
-SqlException_IsUserError = true
 ```
 
 ## Common SQL Error Numbers
@@ -565,25 +371,26 @@ Contributions are welcome! Please:
 
 ## Testing
 
-The test suite uses xUnit and includes scenarios for:
+The test suite uses xUnit and covers:
 
-### Phase 1 Tests
-- SqlException with all properties populated
-- SqlException as inner exception
-- Non-SqlException in chain
-- Empty/null optional properties
+- SqlException detection in exception chains
+- Property extraction and enrichment
+- Deadlock detection (error 1205)
+- Timeout classification (Command/Connection/Network)
+- Error categorization (7 categories, user vs system errors)
+- Transient error detection
+- Severity level mapping (6 levels: Informational → Fatal)
+- OpenTelemetry semantic conventions
+- Configuration validation
 - Circular exception reference protection
-- All errors collection enrichment
-- Connection context enrichment
-- Transient failure detection
 
-### Phase 2 Tests
-- **Deadlock Detection**: Error 1205 detection, XML graph extraction, configuration options
-- **Timeout Classification**: Command/Connection/Network timeout detection, configuration options
-- **Error Categorization**: All 7 categories, user vs system errors, unknown error handling
-- **OpenTelemetry Integration**: Semantic convention property naming, custom prefix fallback
+Run tests:
 
-Run tests with code coverage:
+```powershell
+dotnet test
+```
+
+Run with code coverage:
 
 ```powershell
 dotnet test --collect:"XPlat Code Coverage"
